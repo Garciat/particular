@@ -1,3 +1,4 @@
+<body style="margin:0"></body>
 <script>
 'use script';
 
@@ -7,7 +8,20 @@ const SPACEH = document.body.clientHeight;
 const canvas = document.createElement('canvas');
 canvas.width = SPACEW;
 canvas.height = SPACEH;
+document.body.appendChild(canvas);
 
 const ctx = canvas.getContext('2d');
+
+function draw() {
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, SPACEW, SPACEH);
+}
+
+function loop() {
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
 
 </script>
