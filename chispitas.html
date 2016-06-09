@@ -12,9 +12,32 @@ document.body.appendChild(canvas);
 
 const ctx = canvas.getContext('2d');
 
+function fromRads(r) {
+    return [Math.cos(r), Math.sin(r)];
+}
+
+function fromAngle(a) {
+    return fromRads(a / 360 * 2 * Math.PI);
+}
+
+const chispitas = [
+    {
+        pos: [200, 200],
+        dir: fromAngle(30)
+    }
+];
+
 function draw() {
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, SPACEW, SPACEH);
+
+    for (let chispa of chispitas) {
+        ctx.fillStyle = 'yellow';
+        ctx.fillRect(chispa.pos[0], chispa.pos[1], 10, 10);
+
+        chispa.pos[0] -= 1;
+        chispa.pos[1] += 1;
+    }
 }
 
 function loop() {
