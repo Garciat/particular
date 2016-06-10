@@ -29,6 +29,18 @@ class Vec2 {
         return new Vec2(this.x, this.y);
     }
 
+    lengthSq() {
+        return this.x * this.x + this.y * this.y;
+    }
+
+    length() {
+        return Math.sqrt(this.lengthSq());
+    }
+
+    norm() {
+        return this.copy().sdiv_(this.length());
+    }
+
     add(v) {
         return this.copy().add_(v);
     }
@@ -97,7 +109,8 @@ function makeChispa(pos, spd, hue) {
         color: 'hsla(' + hue + ', 100%, ' + uniformI(20, 80) + '%, 1)',
         size: uniformI(2, 6),
         pos: pos,
-        spd: spd
+        spd: spd,
+        ts: Date.now()
     };
 }
 
@@ -113,27 +126,58 @@ function* makeSpark(pos, spd0, n) {
 
 let chispitas = [];
 
+let tracers = [];
+
+let sinks = [];
+
 let mousePositions = [];
 
 let mousePosition = Vec2.zero();
 
 let mouseSpeed = Vec2.zero();
 
+let shouldProduce = false;
+
 // === EVENTS
-
-canvas.addEventListener('click', function (ev) {
-    const pos = Vec2.fromXY(ev.clientX, ev.clientY);
-
-    const nuevas = makeSpark(pos, mouseSpeed, uniformI(40, 80));
-
-    chispitas = chispitas.concat(Array.from(nuevas));
-});
 
 canvas.addEventListener('mousemove', function (ev) {
     const pos = Vec2.fromXY(ev.clientX, ev.clientY);
 
     mousePosition = pos;
 });
+
+canvas.addEventListener('mousedown', function (ev) {
+    const pos = Vec2.fromXY(ev.clientX, ev.clientY);
+
+    if (ev.button === 0) {
+        shouldProduce = true;
+    } else if (ev.button === 1) {
+        let tracer = makeChispa(pos, Vec2.zero(), 0);
+        tracer.path = [];
+        tracers.push(tracer)
+    } else if (ev.button === 2) {
+        sinks.push({ pos: pos, force: Math.random() })
+    }
+});
+
+window.addEventListener('mouseup', function (ev) {
+    if (ev.button === 0) {
+        shouldProduce = false;
+    }
+});
+
+canvas.addEventListener('contextmenu', function (ev) {
+    ev.preventDefault();
+});
+
+// produce sparks
+setInterval(function () {
+    if (!shouldProduce) return;
+
+    const nuevas = makeSpark(mousePosition, mouseSpeed, uniformI(10, 20));
+
+    chispitas = chispitas.concat(Array.from(nuevas));
+}, 16)
 
 // mouse "smoothing"
 setInterval(function () {
@@ -155,7 +199,8 @@ setInterval(function () {
 
 // clean up
 setInterval(function () {
-    chispitas = chispitas.filter(p => p.pos.y < SPACEH + 100);
+    chispitas = chispitas.filter(p => (Date.now() - p.ts) < 10000);
+    tracers = tracers.filter(p => (Date.now() - p.ts) < 10000);
 }, 200)
 
 // === DRAWING
@@ -171,7 +216,41 @@ function draw() {
         ctx.fill();
 
         chispa.pos.add_(chispa.spd);
-        chispa.spd.add_(Vec2.fromXY(0, 1));
+
+        for (let sink of sinks) {
+            chispa.spd.add_(sink.pos.sub(chispa.pos).norm().smul(sink.force));
+        }
+    }
+
+    for (let tracer of tracers) {
+        ctx.fillStyle = tracer.color;
+        ctx.beginPath();
+        ctx.arc(tracer.pos.x, tracer.pos.y, tracer.size, 0, Math.TAU);
+        ctx.fill();
+
+        tracer.pos.add_(tracer.spd);
+
+        for (let sink of sinks) {
+            tracer.spd.add_(sink.pos.sub(tracer.pos).norm().smul(sink.force));
+        }
+
+        tracer.path.push(tracer.pos.copy());
+
+        ctx.beginPath();
+        ctx.moveTo(tracer.path[0].x, tracer.path[0].y);
+        for (let p of tracer.path) {
+            ctx.lineTo(p.x, p.y);
+        }
+        ctx.strokeStyle = tracer.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    for (let sink of sinks) {
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(sink.pos.x, sink.pos.y, 10 * sink.force, 0, Math.TAU);
+        ctx.fill();
     }
 }
 
