@@ -78,7 +78,7 @@ class Vec2 {
     }
 
     static fromRads(r) {
-        return new Vec2(Math.cos(r), Math.sin(r));
+        return Vec2.fromXY(Math.cos(r), Math.sin(r));
     }
 
     static fromAngle(a) {
