@@ -69,6 +69,8 @@ function uniformI(a, b) {
 
 function makeChispa(pos, spd) {
     return {
+        color: 'hsla(58, 100%, ' + uniformI(20, 80) + '%, 1)',
+        size: uniformI(1, 5),
         pos: pos,
         spd: spd
     };
@@ -99,8 +101,10 @@ function draw() {
     ctx.fillRect(0, 0, SPACEW, SPACEH);
 
     for (let chispa of chispitas) {
-        ctx.fillStyle = 'yellow';
-        ctx.fillRect(chispa.pos.x, chispa.pos.y, 10, 10);
+        ctx.fillStyle = chispa.color;
+        ctx.beginPath();
+        ctx.arc(chispa.pos.x, chispa.pos.y, chispa.size, 0, Math.TAU);
+        ctx.fill();
 
         chispa.pos.add_(chispa.spd);
         chispa.spd.add_(Vec2.fromXY(0, 1));
