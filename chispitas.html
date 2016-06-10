@@ -2,6 +2,8 @@
 <script>
 'use script';
 
+// === SETUP
+
 const SPACEW = document.body.clientWidth;
 const SPACEH = document.body.clientHeight;
 
@@ -12,20 +14,85 @@ document.body.appendChild(canvas);
 
 const ctx = canvas.getContext('2d');
 
-function fromRads(r) {
-    return [Math.cos(r), Math.sin(r)];
-}
+// === MATHS
 
-function fromAngle(a) {
-    return fromRads(a / 360 * 2 * Math.PI);
-}
+Math.TAU = 2 * Math.PI;
 
-const chispitas = [
-    {
-        pos: [200, 200],
-        dir: fromAngle(30)
+class Vec2 {
+    constructor(x, y) {
+        this.x = x || 0;
+        this.y = y || 0;
     }
-];
+
+    copy() {
+        return new Vec2(this.x, this.y);
+    }
+
+    add(v) {
+        return this.copy().add_(v);
+    }
+
+    add_(v) {
+        this.x += v.x;
+        this.y += v.y;
+        return this;
+    }
+
+    smul(k) {
+        return this.copy().smul_(k);
+    }
+
+    smul_(k) {
+        this.x *= k;
+        this.y *= k;
+        return this;
+    }
+
+    static fromXY(x, y) {
+        return new Vec2(x, y);
+    }
+
+    static fromRads(r) {
+        return new Vec2(Math.cos(r), Math.sin(r));
+    }
+
+    static fromAngle(a) {
+        return Vec2.fromRads(a / 360 * Math.TAU);
+    }
+}
+
+// === GENERATION
+
+function uniformI(a, b) {
+    return Math.floor(a + (b - a) * Math.random());
+}
+
+function makeChispa(pos, spd) {
+    return {
+        pos: pos,
+        spd: spd
+    };
+}
+
+function* makeSpark(x, y, n) {
+    for (let i = 0; i < n; ++i) {
+        const pos = Vec2.fromXY(x, y);
+        const spd = Vec2.fromRads(Math.random() * Math.TAU).smul(20 * Math.random());
+        yield makeChispa(pos, spd);
+    }
+}
+
+// === STATE
+
+let chispitas = [];
+
+// === EVENTS
+
+canvas.addEventListener('click', function (ev) {
+    chispitas = chispitas.concat(Array.from(makeSpark(ev.clientX, ev.clientY, uniformI(30, 50))));
+});
+
+// === DRAWING
 
 function draw() {
     ctx.fillStyle = 'black';
@@ -33,10 +100,10 @@ function draw() {
 
     for (let chispa of chispitas) {
         ctx.fillStyle = 'yellow';
-        ctx.fillRect(chispa.pos[0], chispa.pos[1], 10, 10);
+        ctx.fillRect(chispa.pos.x, chispa.pos.y, 10, 10);
 
-        chispa.pos[0] -= 1;
-        chispa.pos[1] += 1;
+        chispa.pos.add_(chispa.spd);
+        chispa.spd.add_(Vec2.fromXY(0, 1));
     }
 }
 
@@ -44,6 +111,8 @@ function loop() {
     draw();
     requestAnimationFrame(loop);
 }
+
+// === GO !
 
 loop();
 
