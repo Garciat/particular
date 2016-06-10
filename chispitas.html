@@ -1,4 +1,5 @@
 <body style="margin:0"></body>
+<script src="http://gbrlgrct.com/gists/07d74ba686ce04eccb11faa44f2ae229/functional.js"></script>
 <script>
 'use script';
 
@@ -38,6 +39,16 @@ class Vec2 {
         return this;
     }
 
+    sub(v) {
+        return this.copy().sub_(v);
+    }
+
+    sub_(v) {
+        this.x -= v.x;
+        this.y -= v.y;
+        return this;
+    }
+
     smul(k) {
         return this.copy().smul_(k);
     }
@@ -46,6 +57,20 @@ class Vec2 {
         this.x *= k;
         this.y *= k;
         return this;
+    }
+
+    sdiv(k) {
+        return this.copy().sdiv_(k);
+    }
+
+    sdiv_(k) {
+        this.x /= k;
+        this.y /= k;
+        return this;
+    }
+
+    static zero() {
+        return Vec2.fromXY(0, 0);
     }
 
     static fromXY(x, y) {
@@ -76,11 +101,10 @@ function makeChispa(pos, spd) {
     };
 }
 
-function* makeSpark(x, y, n) {
+function* makeSpark(pos, spd0, n) {
     for (let i = 0; i < n; ++i) {
-        const pos = Vec2.fromXY(x, y);
         const spd = Vec2.fromRads(Math.random() * Math.TAU).smul(20 * Math.random());
-        yield makeChispa(pos, spd);
+        yield makeChispa(pos.copy(), spd0.add(spd));
     }
 }
 
@@ -88,11 +112,46 @@ function* makeSpark(x, y, n) {
 
 let chispitas = [];
 
+let mousePositions = [];
+
+let mousePosition = Vec2.zero();
+
+let mouseSpeed = Vec2.zero();
+
 // === EVENTS
 
 canvas.addEventListener('click', function (ev) {
-    chispitas = chispitas.concat(Array.from(makeSpark(ev.clientX, ev.clientY, uniformI(30, 50))));
+    const pos = Vec2.fromXY(ev.clientX, ev.clientY);
+
+    const nuevas = makeSpark(pos, mouseSpeed, uniformI(30, 50));
+
+    chispitas = chispitas.concat(Array.from(nuevas));
 });
+
+canvas.addEventListener('mousemove', function (ev) {
+    const pos = Vec2.fromXY(ev.clientX, ev.clientY);
+
+    mousePosition = pos;
+});
+
+setInterval(function () {
+    mousePositions.push(mousePosition);
+
+    if (mousePositions.length === 10) {
+        mousePositions.shift();
+    }
+
+    const spd =
+        chain(mousePositions)
+        .pairwise()
+        .map(ps => ps[1].sub(ps[0]))
+        .reduce(Vec2.zero(), (s, p) => s.add(p))
+        .sdiv(mousePositions.length);
+
+    console.log(spd);
+
+    mouseSpeed = spd;
+}, 16);
 
 // === DRAWING
 
