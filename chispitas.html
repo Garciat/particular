@@ -92,19 +92,20 @@ function uniformI(a, b) {
     return Math.floor(a + (b - a) * Math.random());
 }
 
-function makeChispa(pos, spd) {
+function makeChispa(pos, spd, hue) {
     return {
-        color: 'hsla(58, 100%, ' + uniformI(20, 80) + '%, 1)',
-        size: uniformI(1, 5),
+        color: 'hsla(' + hue + ', 100%, ' + uniformI(20, 80) + '%, 1)',
+        size: uniformI(2, 6),
         pos: pos,
         spd: spd
     };
 }
 
 function* makeSpark(pos, spd0, n) {
+    const hue = uniformI(0, 360);
     for (let i = 0; i < n; ++i) {
-        const spd = Vec2.fromRads(Math.random() * Math.TAU).smul(20 * Math.random());
-        yield makeChispa(pos.copy(), spd0.add(spd));
+        const spd = Vec2.fromRads(Math.random() * Math.TAU).smul(25 * Math.random());
+        yield makeChispa(pos.copy(), spd0.add(spd), hue);
     }
 }
 
@@ -123,7 +124,7 @@ let mouseSpeed = Vec2.zero();
 canvas.addEventListener('click', function (ev) {
     const pos = Vec2.fromXY(ev.clientX, ev.clientY);
 
-    const nuevas = makeSpark(pos, mouseSpeed, uniformI(30, 50));
+    const nuevas = makeSpark(pos, mouseSpeed, uniformI(40, 80));
 
     chispitas = chispitas.concat(Array.from(nuevas));
 });
