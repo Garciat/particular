@@ -155,7 +155,7 @@ setInterval(function () {
 
 // clean up
 setInterval(function () {
-    chispitas = chain(chispitas).filter(p => p.y >= SCENEH / 2).toArray();
+    chispitas = chain(chispitas).filter(p => p.pos.y < SPACEH + 100).toArray();
 }, 200)
 
 // === DRAWING
