@@ -29,6 +29,10 @@ class Vec2 {
         return new Vec2(this.x, this.y);
     }
 
+    distanceTo(v) {
+        return v.copy().sub_(this).length();
+    }
+
     lengthSq() {
         return this.x * this.x + this.y * this.y;
     }
@@ -156,7 +160,7 @@ canvas.addEventListener('mousedown', function (ev) {
         tracer.path = [];
         tracers.push(tracer)
     } else if (ev.button === 2) {
-        sinks.push({ pos: pos, force: Math.random() })
+        sinks.push({ pos: pos, force: 10 })
     }
 });
 
@@ -205,6 +209,12 @@ setInterval(function () {
 
 // === DRAWING
 
+function gravityDV(sink, subject) {
+    const ir2 = Math.pow(subject.pos.distanceTo(sink.pos) / 50, 2);
+
+    return sink.pos.sub(subject.pos).norm().smul(sink.force).sdiv(Math.max(1, ir2))
+}
+
 function draw() {
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, SPACEW, SPACEH);
@@ -218,7 +228,7 @@ function draw() {
         chispa.pos.add_(chispa.spd);
 
         for (let sink of sinks) {
-            chispa.spd.add_(sink.pos.sub(chispa.pos).norm().smul(sink.force));
+            chispa.spd.add_(gravityDV(sink, chispa));
         }
     }
 
@@ -231,7 +241,7 @@ function draw() {
         tracer.pos.add_(tracer.spd);
 
         for (let sink of sinks) {
-            tracer.spd.add_(sink.pos.sub(tracer.pos).norm().smul(sink.force));
+            tracer.spd.add_(gravityDV(sink, tracer));
         }
 
         tracer.path.push(tracer.pos.copy());
@@ -249,7 +259,7 @@ function draw() {
     for (let sink of sinks) {
         ctx.fillStyle = 'white';
         ctx.beginPath();
-        ctx.arc(sink.pos.x, sink.pos.y, 10 * sink.force, 0, Math.TAU);
+        ctx.arc(sink.pos.x, sink.pos.y, 10, 0, Math.TAU);
         ctx.fill();
     }
 }
