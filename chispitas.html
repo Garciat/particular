@@ -135,6 +135,7 @@ canvas.addEventListener('mousemove', function (ev) {
     mousePosition = pos;
 });
 
+// mouse "smoothing"
 setInterval(function () {
     mousePositions.push(mousePosition);
 
@@ -149,10 +150,13 @@ setInterval(function () {
         .reduce(Vec2.zero(), (s, p) => s.add(p))
         .sdiv(mousePositions.length);
 
-    console.log(spd);
-
     mouseSpeed = spd;
 }, 16);
+
+// clean up
+setInterval(function () {
+    chispitas = chain(chispitas).filter(p => p.y >= SCENEH / 2).toArray();
+}, 200)
 
 // === DRAWING
 
