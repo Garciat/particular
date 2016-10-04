@@ -148,6 +148,8 @@ let shiftPressed = false;
 
 let clickDown = null;
 
+let friction = false;
+
 // === EVENTS
 
 canvas.addEventListener('mousemove', function (ev) {
@@ -203,9 +205,11 @@ window.addEventListener('mouseup', function (ev) {
 window.addEventListener('keydown', function (ev) {
     if (ev.keyCode === 16) { // shift
         shiftPressed = true;
-    } else if (ev.keyCode === 32) {
+    } else if (ev.keyCode === 32) { // space
         chispitas = [];
         tracers = [];
+    } else if (ev.keyCode === 70) { // f
+        friction = !friction;
     }
 });
 
@@ -267,7 +271,9 @@ function gravityDV(sink, subject) {
 }
 
 function applyFriction(subject) {
-    subject.spd.add_(subject.spd.smul(-0.05));
+    if (friction) {
+        subject.spd.add_(subject.spd.smul(-0.05));
+    }
 }
 
 function draw() {
