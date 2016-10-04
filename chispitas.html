@@ -1,4 +1,5 @@
 
+
 <body style="margin:0"></body>
 <script src="http://gbrlgrct.com/gists/07d74ba686ce04eccb11faa44f2ae229/functional.js"></script>
 <script>
@@ -115,7 +116,8 @@ function makeChispa(pos, spd, hue) {
         size: uniformI(2, 6),
         pos: pos,
         spd: spd,
-        ts: Date.now()
+        ts: Date.now(),
+        active: false
     };
 }
 
@@ -145,12 +147,24 @@ let shouldProduce = false;
 
 let shiftPressed = false;
 
+let clickDown = null;
+
 // === EVENTS
 
 canvas.addEventListener('mousemove', function (ev) {
     const pos = Vec2.fromXY(ev.clientX, ev.clientY);
 
+    const lastPos = mousePosition;
+
     mousePosition = pos;
+
+    if (clickDown === 1 && tracers.length > 0) {
+        if (mousePosition.distanceTo(tracers[tracers.length - 1].pos) > 25) {
+            let tracer = makeChispa(pos, Vec2.zero(), 0);
+            tracer.path = [];
+            tracers.push(tracer)
+        }
+    }
 });
 
 canvas.addEventListener('mousedown', function (ev) {
@@ -169,12 +183,18 @@ canvas.addEventListener('mousedown', function (ev) {
             sinks.push({ pos: pos, force: 10 });
         }
     }
+
+    clickDown = ev.button;
 });
 
 window.addEventListener('mouseup', function (ev) {
     if (ev.button === 0) {
         shouldProduce = false;
     }
+    tracers.forEach(function (tracer) {
+        tracer.active = true;
+    });
+    clickDown = null;
 });
 
 window.addEventListener('keydown', function (ev) {
@@ -229,7 +249,7 @@ setInterval(function () {
 // === DRAWING
 
 function gravityDV(sink, subject) {
-    const ir2 = Math.pow(subject.pos.distanceTo(sink.pos) / 50, 2);
+    const ir2 = Math.pow(subject.pos.distanceTo(sink.pos) / 25, 2);
 
     return sink.pos.sub(subject.pos).norm().smul(sink.force).sdiv(Math.max(1, ir2))
 }
@@ -239,6 +259,7 @@ function draw() {
     ctx.fillRect(0, 0, SPACEW, SPACEH);
 
     for (let chispa of chispitas) {
+
         ctx.fillStyle = chispa.color;
         ctx.beginPath();
         ctx.arc(chispa.pos.x, chispa.pos.y, chispa.size, 0, Math.TAU);
@@ -256,6 +277,10 @@ function draw() {
         ctx.beginPath();
         ctx.arc(tracer.pos.x, tracer.pos.y, tracer.size, 0, Math.TAU);
         ctx.fill();
+
+        if (!tracer.active) {
+            continue;
+        }
 
         tracer.pos.add_(tracer.spd);
 
