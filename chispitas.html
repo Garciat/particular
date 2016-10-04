@@ -1,3 +1,4 @@
+
 <body style="margin:0"></body>
 <script src="http://gbrlgrct.com/gists/07d74ba686ce04eccb11faa44f2ae229/functional.js"></script>
 <script>
@@ -142,6 +143,8 @@ let mouseSpeed = Vec2.zero();
 
 let shouldProduce = false;
 
+let shiftPressed = false;
+
 // === EVENTS
 
 canvas.addEventListener('mousemove', function (ev) {
@@ -160,13 +163,29 @@ canvas.addEventListener('mousedown', function (ev) {
         tracer.path = [];
         tracers.push(tracer)
     } else if (ev.button === 2) {
-        sinks.push({ pos: pos, force: 10 })
+        if (shiftPressed) {
+            sinks.push({ pos: pos, force: -10 });
+        } else {
+            sinks.push({ pos: pos, force: 10 });
+        }
     }
 });
 
 window.addEventListener('mouseup', function (ev) {
     if (ev.button === 0) {
         shouldProduce = false;
+    }
+});
+
+window.addEventListener('keydown', function (ev) {
+    if (ev.keyCode === 16) { // shift
+        shiftPressed = true;
+    }
+});
+
+window.addEventListener('keyup', function (ev) {
+    if (ev.keyCode === 16) { // shift
+        shiftPressed = false;
     }
 });
 
@@ -257,7 +276,11 @@ function draw() {
     }
 
     for (let sink of sinks) {
-        ctx.fillStyle = 'white';
+        if (sink.force < 0) {
+            ctx.fillStyle = 'blue';
+        } else {
+            ctx.fillStyle = 'white';
+        }
         ctx.beginPath();
         ctx.arc(sink.pos.x, sink.pos.y, 10, 0, Math.TAU);
         ctx.fill();
