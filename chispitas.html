@@ -250,11 +250,18 @@ setInterval(function () {
     mouseSpeed = spd;
 }, 16);
 
-// clean up
-// setInterval(function () {
-//     chispitas = chispitas.filter(p => (Date.now() - p.ts) < 10000);
-//     tracers = tracers.filter(p => (Date.now() - p.ts) < 10000);
-// }, 200)
+function checkBounds(subject) {
+    return subject.pos.x >= 0 &&
+           subject.pos.y >= 0 &&
+           subject.pos.x <= SPACEW &&
+           subject.pos.y <= SPACEH;
+}
+
+// clean up out-of-bounds particles
+setInterval(function () {
+    chispitas = chispitas.filter(checkBounds);
+    tracers = tracers.filter(checkBounds);
+}, 5000)
 
 // === DRAWING
 
