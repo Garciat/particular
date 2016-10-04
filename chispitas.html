@@ -1,5 +1,3 @@
-
-
 <body style="margin:0"></body>
 <script src="http://gbrlgrct.com/gists/07d74ba686ce04eccb11faa44f2ae229/functional.js"></script>
 <script>
@@ -205,6 +203,9 @@ window.addEventListener('mouseup', function (ev) {
 window.addEventListener('keydown', function (ev) {
     if (ev.keyCode === 16) { // shift
         shiftPressed = true;
+    } else if (ev.keyCode === 32) {
+        chispitas = [];
+        tracers = [];
     }
 });
 
@@ -246,10 +247,10 @@ setInterval(function () {
 }, 16);
 
 // clean up
-setInterval(function () {
-    chispitas = chispitas.filter(p => (Date.now() - p.ts) < 10000);
-    tracers = tracers.filter(p => (Date.now() - p.ts) < 10000);
-}, 200)
+// setInterval(function () {
+//     chispitas = chispitas.filter(p => (Date.now() - p.ts) < 10000);
+//     tracers = tracers.filter(p => (Date.now() - p.ts) < 10000);
+// }, 200)
 
 // === DRAWING
 
