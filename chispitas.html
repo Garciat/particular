@@ -150,6 +150,8 @@ let clickDown = null;
 
 let friction = false;
 
+const SINK_RADIUS = 10;
+
 // === EVENTS
 
 canvas.addEventListener('mousemove', function (ev) {
@@ -210,6 +212,8 @@ window.addEventListener('keydown', function (ev) {
         tracers = [];
     } else if (ev.keyCode === 70) { // f
         friction = !friction;
+    } else if (ev.keyCode === 68) { // d
+        sinks = sinks.filter(s => s.pos.distanceTo(mousePosition) > SINK_RADIUS);
     }
 });
 
@@ -268,7 +272,7 @@ setInterval(function () {
 function gravityDV(sink, subject) {
     const dd = subject.pos.distanceTo(sink.pos);
 
-    if (dd < 10) {
+    if (dd <= SINK_RADIUS) {
         return Vec2.zero();
     }
 
@@ -340,7 +344,7 @@ function draw() {
             ctx.fillStyle = 'white';
         }
         ctx.beginPath();
-        ctx.arc(sink.pos.x, sink.pos.y, 10, 0, Math.TAU);
+        ctx.arc(sink.pos.x, sink.pos.y, SINK_RADIUS, 0, Math.TAU);
         ctx.fill();
     }
 }
