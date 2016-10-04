@@ -117,7 +117,8 @@ function makeChispa(pos, spd, hue) {
         pos: pos,
         spd: spd,
         ts: Date.now(),
-        active: false
+        active: false,
+        hue: hue
     };
 }
 
@@ -160,7 +161,7 @@ canvas.addEventListener('mousemove', function (ev) {
 
     if (clickDown === 1 && tracers.length > 0) {
         if (mousePosition.distanceTo(tracers[tracers.length - 1].pos) > 25) {
-            let tracer = makeChispa(pos, Vec2.zero(), 0);
+            let tracer = makeChispa(pos, Vec2.zero(), tracers[tracers.length - 1].hue);
             tracer.path = [];
             tracers.push(tracer)
         }
@@ -173,7 +174,7 @@ canvas.addEventListener('mousedown', function (ev) {
     if (ev.button === 0) {
         shouldProduce = true;
     } else if (ev.button === 1) {
-        let tracer = makeChispa(pos, Vec2.zero(), 0);
+        let tracer = makeChispa(pos, Vec2.zero(), uniformI(0, 360));
         tracer.path = [];
         tracers.push(tracer)
     } else if (ev.button === 2) {
