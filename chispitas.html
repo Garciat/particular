@@ -255,9 +255,19 @@ setInterval(function () {
 // === DRAWING
 
 function gravityDV(sink, subject) {
-    const ir2 = Math.pow(subject.pos.distanceTo(sink.pos) / 25, 2);
+    const dd = subject.pos.distanceTo(sink.pos);
 
-    return sink.pos.sub(subject.pos).norm().smul(sink.force).sdiv(Math.max(1, ir2))
+    if (dd < 10) {
+        return Vec2.zero();
+    }
+
+    const ir2 = Math.pow(dd, 2);
+
+    return sink.pos.sub(subject.pos).norm().smul(100 * sink.force / ir2);
+}
+
+function applyFriction(subject) {
+    subject.spd.add_(subject.spd.smul(-0.05));
 }
 
 function draw() {
@@ -276,6 +286,8 @@ function draw() {
         for (let sink of sinks) {
             chispa.spd.add_(gravityDV(sink, chispa));
         }
+
+        applyFriction(chispa);
     }
 
     for (let tracer of tracers) {
@@ -304,6 +316,8 @@ function draw() {
         ctx.strokeStyle = tracer.color;
         ctx.lineWidth = 2;
         ctx.stroke();
+
+        applyFriction(tracer);
     }
 
     for (let sink of sinks) {
