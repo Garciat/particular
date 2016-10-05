@@ -150,6 +150,10 @@ let clickDown = null;
 
 let friction = false;
 
+let showForceGens = true;
+
+let compositeOperation = 'source-over';
+
 const SINK_RADIUS = 10;
 
 // === EVENTS
@@ -214,6 +218,10 @@ window.addEventListener('keydown', function (ev) {
         friction = !friction;
     } else if (ev.keyCode === 68) { // d
         sinks = sinks.filter(s => s.pos.distanceTo(mousePosition) > SINK_RADIUS);
+    } else if (ev.keyCode === 72) { // h
+        showForceGens = !showForceGens;
+    } else if (ev.keyCode === 67) { // c
+        compositeOperation = prompt('Composite operation', compositeOperation);
     }
 });
 
@@ -288,8 +296,10 @@ function applyFriction(subject) {
 }
 
 function draw() {
+    ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, SPACEW, SPACEH);
+    ctx.globalCompositeOperation = compositeOperation;
 
     for (let chispa of chispitas) {
 
@@ -337,15 +347,17 @@ function draw() {
         applyFriction(tracer);
     }
 
-    for (let sink of sinks) {
-        if (sink.force < 0) {
-            ctx.fillStyle = 'blue';
-        } else {
-            ctx.fillStyle = 'white';
+    if (showForceGens) {
+        for (let sink of sinks) {
+            if (sink.force < 0) {
+                ctx.fillStyle = 'blue';
+            } else {
+                ctx.fillStyle = 'white';
+            }
+            ctx.beginPath();
+            ctx.arc(sink.pos.x, sink.pos.y, SINK_RADIUS, 0, Math.TAU);
+            ctx.fill();
         }
-        ctx.beginPath();
-        ctx.arc(sink.pos.x, sink.pos.y, SINK_RADIUS, 0, Math.TAU);
-        ctx.fill();
     }
 }
 
