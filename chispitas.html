@@ -25,12 +25,12 @@ class Vec2 {
         this.y = y || 0;
     }
 
-    copy() {
+    clone() {
         return new Vec2(this.x, this.y);
     }
 
     distanceTo(v) {
-        return v.copy().sub_(this).length();
+        return v.clone().sub_(this).length();
     }
 
     lengthSq() {
@@ -42,7 +42,7 @@ class Vec2 {
     }
 
     norm() {
-        return this.copy().sdiv_(this.length());
+        return this.clone().sdiv_(this.length());
     }
 
     perpCW() {
@@ -54,7 +54,7 @@ class Vec2 {
     }
 
     add(v) {
-        return this.copy().add_(v);
+        return this.clone().add_(v);
     }
 
     add_(v) {
@@ -64,7 +64,7 @@ class Vec2 {
     }
 
     sub(v) {
-        return this.copy().sub_(v);
+        return this.clone().sub_(v);
     }
 
     sub_(v) {
@@ -74,7 +74,7 @@ class Vec2 {
     }
 
     smul(k) {
-        return this.copy().smul_(k);
+        return this.clone().smul_(k);
     }
 
     smul_(k) {
@@ -84,7 +84,7 @@ class Vec2 {
     }
 
     sdiv(k) {
-        return this.copy().sdiv_(k);
+        return this.clone().sdiv_(k);
     }
 
     sdiv_(k) {
@@ -110,39 +110,68 @@ class Vec2 {
     }
 }
 
-// === GENERATION
-
 function uniformI(a, b) {
     return Math.floor(a + (b - a) * Math.random());
 }
 
-function makeChispa(pos, spd, hue) {
-    return {
-        color: 'hsla(' + hue + ', 100%, ' + uniformI(20, 80) + '%, 1)',
-        size: uniformI(2, 6),
-        pos: pos,
-        spd: spd,
-        ts: Date.now(),
-        active: false,
-        hue: hue
-    };
+function randomHsla() {
+    return randomHslaWithHue(uniformI(0, 360));
 }
 
-function* makeSpark(pos, spd0, n) {
-    const hue = uniformI(0, 360);
-    for (let i = 0; i < n; ++i) {
-        const spd = Vec2.fromRads(Math.random() * Math.TAU).smul(25 * Math.random());
-        yield makeChispa(pos.copy(), spd0.add(spd), hue);
+function randomHslaWithHue(hue) {
+    return [hue, 100, uniformI(20, 80), 1];
+}
+
+function hslaToColor(hsla) {
+    return `hsla(${hsla[0]}, ${hsla[1]}%, ${hsla[2]}%, ${hsla[3]})`;
+}
+
+function randomDirectionVec2() {
+    return Vec2.fromRads(Math.random() * Math.TAU);
+}
+
+// === ENTITIES
+
+function makeCircleDrawing(size, color) {
+    var canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size * 2;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(size, size, size, 0, Math.TAU);
+    ctx.fill();
+    return canvas;
+}
+
+class Particle {
+    constructor(pos, spd, hsla, trace, size) {
+        this.active = false;
+        this.pos = pos.clone();
+        this.spd = spd.clone();
+        this.size = size || uniformI(2, 6);
+        this.hsla = hsla;
+        this.color = hslaToColor(hsla);
+
+        this.trace = Boolean(trace);
+        this.path = [];
+
+        this.canvas = makeCircleDrawing(this.size, this.color);
+    }
+}
+
+class Force {
+    constructor(pos, value, color) {
+        this.pos = pos.clone();
+        this.value = value;
+        this.color = color || (value < 0 ? 'blue' : 'white');
     }
 }
 
 // === STATE
 
-let chispitas = [];
+let particles = [];
 
-let tracers = [];
-
-let sinks = [];
+let forces = [];
 
 let mousePositions = [];
 
@@ -162,56 +191,96 @@ let friction = false;
 
 let showForceGens = true;
 
-let compositeOperation = 'source-over';
+let currentHue = null;
+
+const COMPOSITE_OPERATION_DEFAULT = 'source-over';
+
+let compositeOperation = COMPOSITE_OPERATION_DEFAULT;
 
 const SINK_RADIUS = 10;
 
+// === HELPERS
+
+function produceParticlesAtMouse(bag, pos) {
+    const n = uniformI(10, 20);
+    for (let i = 0; i < n; ++i) {
+        const spd = randomDirectionVec2().smul_(5 * Math.random() + 5);
+        bag.push(new Particle(pos, spd, randomHsla()));
+    }
+}
+
+function updateMouseSpeed(pos) {
+    mousePositions.push(pos);
+
+    if (mousePositions.length === 11) {
+        mousePositions.shift();
+    }
+
+    const n = mousePositions.length;
+    let spd = Vec2.zero();
+
+    for (var i = 1; i < n; ++i) {
+        spd.add_(mousePositions[i]);
+        spd.sub_(mousePositions[i - 1]);
+    }
+
+    spd.sdiv_(n);
+
+    mouseSpeed = spd;
+}
+
+function checkBounds(subject) {
+    return subject.pos.x >= 0 &&
+           subject.pos.y >= 0 &&
+           subject.pos.x <= SPACEW &&
+           subject.pos.y <= SPACEH;
+}
+
 // === EVENTS
 
-canvas.addEventListener('mousemove', function (ev) {
+window.addEventListener('mousemove', function (ev) {
     const pos = Vec2.fromXY(ev.clientX, ev.clientY);
 
-    const lastPos = mousePosition;
+    if (clickDown === 1 && particles.length > 0) {
+        const lastParticle = particles[particles.length - 1];
 
-    mousePosition = pos;
-
-    if (clickDown === 1 && tracers.length > 0) {
-        if (mousePosition.distanceTo(tracers[tracers.length - 1].pos) > 25) {
-            let tracer = makeChispa(pos, Vec2.zero(), tracers[tracers.length - 1].hue);
-            tracer.path = [];
-            tracers.push(tracer)
+        if (pos.distanceTo(lastParticle.pos) > 25) {
+            let hsla = randomHslaWithHue(lastParticle.hsla[0]);
+            particles.push(new Particle(pos, Vec2.zero(), hsla, true));
         }
-    } else if (clickDown === 2 && sinks.length > 0) {
+    } else if (clickDown === 2 && forces.length > 0) {
         if (controlPressed) {
             const axL = mouseSpeed.perpCW().norm();
             const axR = mouseSpeed.perpCCW().norm();
-            sinks.push({ pos: pos.add(axL.smul(10)), force: -5 });
-            sinks.push({ pos: pos.add(axL.smul(5)), force: 5 });
-            sinks.push({ pos: pos.add(axR.smul(5)), force: 5 });
-            sinks.push({ pos: pos.add(axR.smul(10)), force: -5 });
+            const f = 20;
+            forces.push(new Force(pos.add(axL.smul(10)), -f));
+            forces.push(new Force(pos.add(axL.smul(5)), f));
+            forces.push(new Force(pos.add(axR.smul(5)), f));
+            forces.push(new Force(pos.add(axR.smul(10)), -f));
         } else {
-            if (mousePosition.distanceTo(sinks[sinks.length - 1].pos) > 25) {
-                sinks.push({ pos: pos, force: sinks[sinks.length - 1].force });
+            const lastForce = forces[forces.length - 1];
+            if (pos.distanceTo(lastForce.pos) > 25) {
+                forces.push(new Force(pos, lastForce.value));
             }
         }
     }
+
+    mousePosition = pos;
 });
 
-canvas.addEventListener('mousedown', function (ev) {
+window.addEventListener('mousedown', function (ev) {
     const pos = Vec2.fromXY(ev.clientX, ev.clientY);
 
     if (ev.button === 0) {
         shouldProduce = true;
     } else if (ev.button === 1) {
-        let tracer = makeChispa(pos, Vec2.zero(), uniformI(0, 360));
-        tracer.path = [];
-        tracers.push(tracer)
+        particles.push(new Particle(pos, Vec2.zero(), randomHsla(), true));
     } else if (ev.button === 2) {
+        let forceValue = 10;
         if (shiftPressed) {
-            sinks.push({ pos: pos, force: -10 });
-        } else {
-            sinks.push({ pos: pos, force: 10 });
+            forceValue *= -1;
         }
+        forces.push(new Force(pos, forceValue));
     }
 
     clickDown = ev.button;
@@ -221,9 +290,7 @@ window.addEventListener('mouseup', function (ev) {
     if (ev.button === 0) {
         shouldProduce = false;
     }
-    tracers.forEach(function (tracer) {
-        tracer.active = true;
-    });
+    particles.filter(p => p.trace).forEach(p => p.active = true);
     clickDown = null;
 });
 
@@ -233,16 +300,15 @@ window.addEventListener('keydown', function (ev) {
     } else if (ev.keyCode === 17) { // control
         controlPressed = true;
     } else if (ev.keyCode === 32) { // space
-        chispitas = [];
-        tracers = [];
+        particles = [];
     } else if (ev.keyCode === 70) { // f
         friction = !friction;
     } else if (ev.keyCode === 68) { // d
-        sinks = sinks.filter(s => s.pos.distanceTo(mousePosition) > SINK_RADIUS);
+        forces = forces.filter(f => f.pos.distanceTo(mousePosition) > SINK_RADIUS);
     } else if (ev.keyCode === 72) { // h
         showForceGens = !showForceGens;
     } else if (ev.keyCode === 67) { // c
-        compositeOperation = prompt('Composite operation', compositeOperation);
+        compositeOperation = prompt('Composite operation', compositeOperation) || COMPOSITE_OPERATION_DEFAULT;
     }
 });
 
@@ -258,64 +324,37 @@ canvas.addEventListener('contextmenu', function (ev) {
     ev.preventDefault();
 });
 
-// produce sparks
 setInterval(function () {
-    if (!shouldProduce) return;
-
-    const nuevas = makeSpark(mousePosition, mouseSpeed, uniformI(10, 20));
-
-    chispitas = chispitas.concat(Array.from(nuevas));
-}, 16)
-
-// mouse "smoothing"
-setInterval(function () {
-    mousePositions.push(mousePosition);
-
-    if (mousePositions.length === 10) {
-        mousePositions.shift();
+    updateMouseSpeed(mousePosition);
+    if (shouldProduce) {
+        produceParticlesAtMouse(particles, mousePosition);
     }
-
-    const spd =
-        chain(mousePositions)
-        .pairwise()
-        .map(ps => ps[1].sub(ps[0]))
-        .reduce(Vec2.zero(), (s, p) => s.add(p))
-        .sdiv(mousePositions.length);
-
-    mouseSpeed = spd;
 }, 16);
-
-function checkBounds(subject) {
-    return subject.pos.x >= 0 &&
-           subject.pos.y >= 0 &&
-           subject.pos.x <= SPACEW &&
-           subject.pos.y <= SPACEH;
-}
 
 // clean up out-of-bounds particles
 setInterval(function () {
-    chispitas = chispitas.filter(checkBounds);
-    tracers = tracers.filter(checkBounds);
+    particles = particles.filter(checkBounds);
 }, 5000)
 
 // === DRAWING
 
-function gravityDV(sink, subject) {
-    const dd = subject.pos.distanceTo(sink.pos);
+function applyGravity(sink, subject) {
+    const dpos = sink.pos.sub(subject.pos);
+    const dd = dpos.length();
 
     if (dd <= SINK_RADIUS) {
-        return Vec2.zero();
+        return;
     }
 
     const ir2 = Math.pow(dd, 2);
 
-    return sink.pos.sub(subject.pos).norm().smul(100 * sink.force / ir2);
+    const vel = dpos.sdiv(dd).smul(100 * sink.value / ir2);
+
+    subject.spd.add_(vel);
 }
 
 function applyFriction(subject) {
-    if (friction) {
-        subject.spd.add_(subject.spd.smul(-0.05));
-    }
+    subject.spd.add_(subject.spd.smul(-0.05));
 }
 
 function drawVector(ctx, pos, vec, scale, color) {
@@ -328,75 +367,92 @@ function drawVector(ctx, pos, vec, scale, color) {
     ctx.stroke();
 }
 
-function draw() {
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = 'black';
-    ctx.fillRect(0, 0, SPACEW, SPACEH);
-    ctx.globalCompositeOperation = compositeOperation;
+function simulate() {
+    var nP = particles.length;
+    var nF = forces.length;
+    for (var iP = 0; iP < nP; ++iP) {
+        var particle = particles[iP];
 
-    // drawVector(ctx, mousePosition, mouseSpeed, 5, 'green');
-
-    for (let chispa of chispitas) {
-
-        ctx.fillStyle = chispa.color;
-        ctx.beginPath();
-        ctx.arc(chispa.pos.x, chispa.pos.y, chispa.size, 0, Math.TAU);
-        ctx.fill();
-
-        chispa.pos.add_(chispa.spd);
-
-        for (let sink of sinks) {
-            chispa.spd.add_(gravityDV(sink, chispa));
-        }
-
-        applyFriction(chispa);
-    }
-
-    for (let tracer of tracers) {
-        ctx.fillStyle = tracer.color;
-        ctx.beginPath();
-        ctx.arc(tracer.pos.x, tracer.pos.y, tracer.size, 0, Math.TAU);
-        ctx.fill();
-
-        if (!tracer.active) {
+        if (particle.trace && !particle.active) {
             continue;
         }
 
-        tracer.pos.add_(tracer.spd);
+        particle.pos.add_(particle.spd);
 
-        for (let sink of sinks) {
-            tracer.spd.add_(gravityDV(sink, tracer));
+        for (var iF = 0; iF < nF; ++iF) {
+            applyGravity(forces[iF], particle);
         }
 
-        tracer.path.push(tracer.pos.copy());
-
-        ctx.beginPath();
-        ctx.moveTo(tracer.path[0].x, tracer.path[0].y);
-        for (let p of tracer.path) {
-            ctx.lineTo(p.x, p.y);
+        if (friction) {
+            applyFriction(particle);
         }
-        ctx.strokeStyle = tracer.color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
 
-        applyFriction(tracer);
-    }
-
-    if (showForceGens) {
-        for (let sink of sinks) {
-            if (sink.force < 0) {
-                ctx.fillStyle = 'blue';
-            } else {
-                ctx.fillStyle = 'white';
-            }
-            ctx.beginPath();
-            ctx.arc(sink.pos.x, sink.pos.y, SINK_RADIUS, 0, Math.TAU);
-            ctx.fill();
+        if (particle.trace) {
+            particle.path.push(particle.pos.clone());
         }
     }
 }
 
+function clearScreen() {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, SPACEW, SPACEH);
+}
+
+function drawPath(path, color) {
+    ctx.beginPath();
+    ctx.moveTo(path[0].x, path[0].y);
+    var nXY = path.length;
+    for (var iXY = 0; iXY < nXY; ++iXY) {
+        var p = path[iXY];
+        ctx.lineTo(p.x, p.y);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+function drawParticles() {
+    var nP = particles.length;
+    for (var iP = 0; iP < nP; ++iP) {
+        var particle = particles[iP];
+
+        var sz = +particle.size;
+        ctx.drawImage(particle.canvas, particle.pos.x - sz, particle.pos.y - sz);
+
+        if (particle.trace && particle.active) {
+            drawPath(particle.path, particle.color);
+        }
+    }
+}
+
+function drawForces() {
+    var nF = forces.length;
+    for (var iF = 0; iF < nF; ++iF) {
+        var force = forces[iF];
+        ctx.fillStyle = force.color;
+        ctx.beginPath();
+        ctx.arc(force.pos.x, force.pos.y, SINK_RADIUS, 0, Math.TAU);
+        ctx.fill();
+    }
+}
+
+function draw() {
+    clearScreen();
+
+    ctx.globalCompositeOperation = compositeOperation;
+
+    drawParticles();
+
+    if (showForceGens) {
+        drawForces();
+    }
+
+    // drawVector(ctx, mousePosition, mouseSpeed, 5, 'green');
+}
+
 function loop() {
+    simulate();
     draw();
     requestAnimationFrame(loop);
 }
