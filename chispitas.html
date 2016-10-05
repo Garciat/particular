@@ -45,6 +45,14 @@ class Vec2 {
         return this.copy().sdiv_(this.length());
     }
 
+    perpCW() {
+        return new Vec2(-this.y, this.x);
+    }
+
+    perpCCW() {
+        return new Vec2(this.y, -this.x);
+    }
+
     add(v) {
         return this.copy().add_(v);
     }
@@ -146,6 +154,8 @@ let shouldProduce = false;
 
 let shiftPressed = false;
 
+let controlPressed = false;
+
 let clickDown = null;
 
 let friction = false;
@@ -172,8 +182,17 @@ canvas.addEventListener('mousemove', function (ev) {
             tracers.push(tracer)
         }
     } else if (clickDown === 2 && sinks.length > 0) {
-        if (mousePosition.distanceTo(sinks[sinks.length - 1].pos) > 25) {
-            sinks.push({ pos: pos, force: sinks[sinks.length - 1].force });
+        if (controlPressed) {
+            const axL = mouseSpeed.perpCW().norm();
+            const axR = mouseSpeed.perpCCW().norm();
+            sinks.push({ pos: pos.add(axL.smul(10)), force: -5 });
+            sinks.push({ pos: pos.add(axL.smul(5)), force: 5 });
+            sinks.push({ pos: pos.add(axR.smul(5)), force: 5 });
+            sinks.push({ pos: pos.add(axR.smul(10)), force: -5 });
+        } else {
+            if (mousePosition.distanceTo(sinks[sinks.length - 1].pos) > 25) {
+                sinks.push({ pos: pos, force: sinks[sinks.length - 1].force });
+            }
         }
     }
 });
@@ -211,6 +230,8 @@ window.addEventListener('mouseup', function (ev) {
 window.addEventListener('keydown', function (ev) {
     if (ev.keyCode === 16) { // shift
         shiftPressed = true;
+    } else if (ev.keyCode === 17) { // control
+        controlPressed = true;
     } else if (ev.keyCode === 32) { // space
         chispitas = [];
         tracers = [];
@@ -228,6 +249,8 @@ window.addEventListener('keydown', function (ev) {
 window.addEventListener('keyup', function (ev) {
     if (ev.keyCode === 16) { // shift
         shiftPressed = false;
+    } else if (ev.keyCode === 17) { // control
+        controlPressed = false;
     }
 });
 
@@ -295,11 +318,23 @@ function applyFriction(subject) {
     }
 }
 
+function drawVector(ctx, pos, vec, scale, color) {
+    const vecS = pos.add(vec.smul(scale));
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    ctx.lineTo(vecS.x, vecS.y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2
+    ctx.stroke();
+}
+
 function draw() {
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, SPACEW, SPACEH);
     ctx.globalCompositeOperation = compositeOperation;
+
+    drawVector(ctx, mousePosition, mouseSpeed, 5, 'green');
 
     for (let chispa of chispitas) {
 
