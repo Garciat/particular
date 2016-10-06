@@ -145,14 +145,16 @@ function makeCircleDrawing(size, color) {
 
 class Particle {
     constructor(pos, spd, hsla, trace, size) {
+        this.deleted = false;
         this.active = false;
+        this.trace = Boolean(trace);
+
         this.pos = pos.clone();
         this.spd = spd.clone();
         this.size = size || uniformI(2, 6);
         this.hsla = hsla;
         this.color = hslaToColor(hsla);
 
-        this.trace = Boolean(trace);
         this.path = [];
 
         this.canvas = makeCircleDrawing(this.size, this.color);
@@ -227,6 +229,25 @@ function updateMouseSpeed(pos) {
     spd.sdiv_(n);
 
     mouseSpeed = spd;
+}
+
+function cleanOutOfBounds(bag) {
+    var nP = bag.length;
+    var ds = 0;
+    for (var iP = 0; iP < nP; ++iP) {
+        var p = bag[iP];
+        if (p.deleted) {
+            ds += 1;
+            continue;
+        }
+        if (!checkBounds(p)) {
+            p.deleted = true;
+        }
+    }
+    if (ds > 5000) {
+        return bag.filter(p => !p.deleted);
+    }
+    return null;
 }
 
 function checkBounds(subject) {
@@ -333,7 +354,10 @@ setInterval(function () {
 
 // clean up out-of-bounds particles
 setInterval(function () {
-    particles = particles.filter(checkBounds);
+    var newParticles = cleanOutOfBounds(particles);
+    if (newParticles) {
+        particles = newParticles;
+    }
 }, 5000)
 
 // === DRAWING
@@ -372,6 +396,10 @@ function simulate() {
     var nF = forces.length;
     for (var iP = 0; iP < nP; ++iP) {
         var particle = particles[iP];
+
+        if (particle.deleted) {
+            continue;
+        }
 
         if (particle.trace && !particle.active) {
             continue;
@@ -416,6 +444,10 @@ function drawParticles() {
     var nP = particles.length;
     for (var iP = 0; iP < nP; ++iP) {
         var particle = particles[iP];
+
+        if (particle.deleted) {
+            continue;
+        }
 
         var sz = +particle.size;
         ctx.drawImage(particle.canvas, particle.pos.x - sz, particle.pos.y - sz);
