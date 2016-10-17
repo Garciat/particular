@@ -201,6 +201,8 @@ let compositeOperation = COMPOSITE_OPERATION_DEFAULT;
 
 const SINK_RADIUS = 10;
 
+let showParticleSpeedVector = false;
+
 // === HELPERS
 
 function produceParticlesAtMouse(bag, pos) {
@@ -332,6 +334,8 @@ window.addEventListener('keydown', function (ev) {
         compositeOperation = prompt('Composite operation', compositeOperation) || COMPOSITE_OPERATION_DEFAULT;
     } else if (ev.keyCode === 90) { // z
         forces = forces.slice(0, forces.length - 1);
+    } else if (ev.keyCode === 86) { // v
+        showParticleSpeedVector = !showParticleSpeedVector;
     }
 });
 
@@ -456,6 +460,10 @@ function drawParticles() {
 
         if (particle.trace && particle.active) {
             drawPath(particle.path, particle.color);
+        }
+
+        if (showParticleSpeedVector) {
+            drawVector(ctx, particle.pos, particle.spd, 5, particle.color);
         }
     }
 }
