@@ -330,6 +330,8 @@ window.addEventListener('keydown', function (ev) {
         showForceGens = !showForceGens;
     } else if (ev.keyCode === 67) { // c
         compositeOperation = prompt('Composite operation', compositeOperation) || COMPOSITE_OPERATION_DEFAULT;
+    } else if (ev.keyCode === 90) { // z
+        forces = forces.slice(0, forces.length - 1);
     }
 });
 
