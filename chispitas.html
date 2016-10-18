@@ -1,3 +1,4 @@
+
 <body style="margin:0"></body>
 <script src="http://gbrlgrct.com/gists/07d74ba686ce04eccb11faa44f2ae229/functional.js"></script>
 <script>
@@ -162,10 +163,21 @@ class Particle {
 }
 
 class Force {
-    constructor(pos, value, color) {
+    constructor(pos, value, color, pulsate) {
         this.pos = pos.clone();
         this.value = value;
         this.color = color || (value < 0 ? 'blue' : 'white');
+        this.pulsate = pulsate || null;
+        this.pulsateState = -1.0 * Math.sign(value);
+    }
+
+    step() {
+        const pulsateLimit = 30;
+        this.value += this.pulsateState * 0.8;
+        if (this.value >= pulsateLimit || this.value <= -pulsateLimit) {
+            this.pulsateState *= -1;
+        }
+        this.color = hslaToColor([240, 100, 50 + 50 * Math.abs(pulsateLimit + this.value) / (pulsateLimit * 2), 1]);
     }
 }
 
@@ -186,6 +198,8 @@ let shouldProduce = false;
 let shiftPressed = false;
 
 let controlPressed = false;
+
+let altPressed = false;
 
 let clickDown = null;
 
@@ -300,10 +314,14 @@ window.addEventListener('mousedown', function (ev) {
         particles.push(new Particle(pos, Vec2.zero(), randomHsla(), true));
     } else if (ev.button === 2) {
         let forceValue = 10;
+        let pulsate = null;
         if (shiftPressed) {
             forceValue *= -1;
         }
-        forces.push(new Force(pos, forceValue));
+        if (altPressed) {
+            pulsate = 'linear';
+        }
+        forces.push(new Force(pos, forceValue, null, pulsate));
     }
 
     clickDown = ev.button;
@@ -322,6 +340,8 @@ window.addEventListener('keydown', function (ev) {
         shiftPressed = true;
     } else if (ev.keyCode === 17) { // control
         controlPressed = true;
+    } else if (ev.keyCode === 18) { // alt
+        altPressed = true;
     } else if (ev.keyCode === 32) { // space
         particles = [];
     } else if (ev.keyCode === 70) { // f
@@ -344,6 +364,8 @@ window.addEventListener('keyup', function (ev) {
         shiftPressed = false;
     } else if (ev.keyCode === 17) { // control
         controlPressed = false;
+    } else if (ev.keyCode === 18) { // alt
+        altPressed = false;
     }
 });
 
@@ -479,6 +501,16 @@ function drawForces() {
     }
 }
 
+function applyForcePulsation() {
+    var nF = forces.length;
+    for (var iF = 0; iF < nF; ++iF) {
+        var force = forces[iF];
+        if (force.pulsate) {
+            force.step();
+        }
+    }
+}
+
 function draw() {
     clearScreen();
 
@@ -489,6 +521,8 @@ function draw() {
     if (showForceGens) {
         drawForces();
     }
+
+    applyForcePulsation();
 
     // drawVector(ctx, mousePosition, mouseSpeed, 5, 'green');
 }
