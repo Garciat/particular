@@ -288,6 +288,7 @@ function checkBounds(subject) {
 // === EVENTS
 
 canvas.addEventListener('touchstart', function (ev) {
+    ev.preventDefault();
     const touch = ev.touches[0];
     const pos = Vec2.fromXY(touch.clientX, touch.clientY);
     mousePosition = pos;
