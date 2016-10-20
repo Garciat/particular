@@ -1,3 +1,7 @@
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+</head>
+
 <body style="margin:0"></body>
 <script src="http://gbrlgrct.com/gists/07d74ba686ce04eccb11faa44f2ae229/functional.js"></script>
 <script>
@@ -282,6 +286,23 @@ function checkBounds(subject) {
 }
 
 // === EVENTS
+
+canvas.addEventListener('touchstart', function (ev) {
+    const touch = ev.touches[0];
+    const pos = Vec2.fromXY(touch.clientX, touch.clientY);
+    mousePosition = pos;
+    shouldProduce = true;
+});
+
+canvas.addEventListener('touchmove', function (ev) {
+    const touch = ev.touches[0];
+    const pos = Vec2.fromXY(touch.clientX, touch.clientY);
+    mousePosition = pos;
+});
+
+window.addEventListener('touchend', function (ev) {
+    shouldProduce = false;
+});
 
 window.addEventListener('mousemove', function (ev) {
     const pos = Vec2.fromXY(ev.clientX, ev.clientY);
