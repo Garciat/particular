@@ -35,6 +35,7 @@ const main = async(function* () {
     document.body.appendChild(canvas);
 
     var gl = canvas.getContext('webgl');
+    var gl_ia = gl.getExtension('ANGLE_instanced_arrays');
     
     var vertexShaderNode = WebGLHelpers.compileVertexShader(gl, yield downloadText('shaders/circle-vs.shader'));
     var fragmentShaderNode = WebGLHelpers.compileFragmentShader(gl, yield downloadText('shaders/circle-fs.shader'));
@@ -48,76 +49,89 @@ const main = async(function* () {
     gl.clearColor(0, 0, 0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     
-    var CIRCLES = 100000;
-    var PARTS = 10;
-    var ATTRIBUTES = 6;
-    var j = 0;
-    var data = new Float32Array(6 * (3 * PARTS + 0) * CIRCLES);
+    var CIRCLE_COUNT = 100000;
+    var EDGE_COUNT = 10;
 
-    function putCircleVertex(x, y, cx, cy, cz, cw) {
-        data[j++] = x;
-        data[j++] = y;
-        data[j++] = cx;
-        data[j++] = cy;
-        data[j++] = cz;
-        data[j++] = cw;
+    var iE = 0;
+    var edges = new Float32Array(2 * 3 * EDGE_COUNT);
+    var iC = 0;
+    var circles = new Float32Array(3 * CIRCLE_COUNT);
+    var iK = 0;
+    var colors = new Float32Array(4 * CIRCLE_COUNT);
+
+    const K = 2 * Math.PI / EDGE_COUNT;
+    for (let i = 0; i < EDGE_COUNT; ++i) {
+        edges[iE++] = 0;
+        edges[iE++] = 0;
+
+        edges[iE++] = Math.cos((i + 0) * K);
+        edges[iE++] = Math.sin((i + 0) * K);
+
+        edges[iE++] = Math.cos((i + 1) * K);
+        edges[iE++] = Math.sin((i + 1) * K);
     }
-
-    const K = 2 * Math.PI / PARTS;
 
     function putCircle(x, y, r) {
         let [cx, cy, cz] = hslToGlColor(0, 0.8, 0.2 + 0.6 * Math.random());
 
-        for (let i = 0; i < PARTS; ++i) {
-            putCircleVertex(x,
-                            y,
-                            cx, cy, cz, 0);
+        circles[iC++] = x;
+        circles[iC++] = y;
+        circles[iC++] = r;
 
-            putCircleVertex(x + r * Math.cos((i + 0) * K),
-                            y + r * Math.sin((i + 0) * K),
-                            cx, cy, cz, 0);
-
-            putCircleVertex(x + r * Math.cos((i + 1) * K),
-                            y + r * Math.sin((i + 1) * K),
-                            cx, cy, cz, 0);
-        }
+        colors[iK++] = cx;
+        colors[iK++] = cy;
+        colors[iK++] = cz;
     }
 
     function regenerate() {
-        j = 0;
-        for (let m = 0; m < CIRCLES; ++m) {
-            putCircle(SCREENW * Math.random(), SCREENH * Math.random(), 1 + 3 * Math.random());
+        iE = iC = iK = 0;
+        for (let m = 0; m < CIRCLE_COUNT; ++m) {
+            putCircle(SCREENW * Math.random(),
+                      SCREENH * Math.random(),
+                      1 + 3 * Math.random());
         }
     }
 
     var resolutionLocation = gl.getUniformLocation(programNode, "u_resolution");
     gl.uniform2f(resolutionLocation, SCREENW, SCREENH);
 
-    var positionLocation = gl.getAttribLocation(programNode, "a_position");
-    var colorLocation = gl.getAttribLocation(programNode, "a_color");
+    var edgeLocation = 0;
+    var circleLocation = 1;
+    var colorLocation = 2;
 
-    var buffer = gl.createBuffer();
+    gl.bindAttribLocation(programNode, edgeLocation, "a_edge");
+    gl.bindAttribLocation(programNode, circleLocation, "a_circle");
+    gl.bindAttribLocation(programNode, colorLocation, "a_color");
+
+    var edgeBuf = gl.createBuffer();
+    var circleBuf = gl.createBuffer();
+    var colorBuf = gl.createBuffer();
 
     function loop() {
         requestAnimationFrame(loop);
 
         regenerate();
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(
-            gl.ARRAY_BUFFER, 
-            data,
-            gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, edgeBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, edges, gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(edgeLocation);
+        gl.vertexAttribPointer(edgeLocation, 2, gl.FLOAT, false, 8, 0);
 
-        gl.enableVertexAttribArray(positionLocation);
+        gl.bindBuffer(gl.ARRAY_BUFFER, circleBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, circles, gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(circleLocation);
+        gl.vertexAttribPointer(circleLocation, 3, gl.FLOAT, false, 12, 0);
+        gl_ia.vertexAttribDivisorANGLE(circleLocation, 1);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
         gl.enableVertexAttribArray(colorLocation);
-
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, ATTRIBUTES * Float32Array.BYTES_PER_ELEMENT, 0);
-        gl.vertexAttribPointer(colorLocation, 4, gl.FLOAT, false, ATTRIBUTES * Float32Array.BYTES_PER_ELEMENT, 8);
+        gl.vertexAttribPointer(colorLocation, 4, gl.FLOAT, false, 16, 0);
+        gl_ia.vertexAttribDivisorANGLE(colorLocation, 1);
 
         gl.clearColor(0, 0, 0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl.drawArrays(gl.TRIANGLES, 0, data.length/ATTRIBUTES);
+        gl_ia.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 3 * EDGE_COUNT, CIRCLE_COUNT);
     }
 
     loop();
