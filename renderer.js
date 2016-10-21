@@ -46,51 +46,5 @@ var WebGLRenderer = (function () {
         this.gl = canvas.getContext('webgl');
         this.gl.viewport(0, 0, canvas.width, canvas.height);
     }
-    WebGLRenderer.prototype.initBuffers = function () {
-        var buffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        var vertices = [
-            -1.0, -1.0,
-            1.0, -1.0,
-            -1.0, 1.0,
-            -1.0, 1.0,
-            1.0, -1.0,
-            1.0, 1.0
-        ];
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-        var a_position = gl.getAttribLocation(shaderProgram, 'a_position');
-        gl.enableVertexAttribArray(a_position);
-        gl.vertexAttribPointer(a_position, 2, gl.FLOAT, false, 0, 0);
-    };
-    WebGLRenderer.prototype.drawScene = function (time) {
-        gl.uniform1f(u_time, time / 1000);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-    };
-    WebGLRenderer.prototype.webGLStart = function (canvas) {
-        canvas.width = document.body.clientWidth;
-        canvas.height = document.body.clientHeight;
-        initGL(canvas);
-        initShaders();
-        gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        gl.clearDepth(1.0);
-        initBuffers();
-    };
-    WebGLRenderer.prototype.canvasClicked = function () {
-        toggleFullScreen();
-    };
-    WebGLRenderer.prototype.windowResized = function () {
-        var canvas = document.getElementById('canvas');
-        webGLStart(canvas);
-    };
-    WebGLRenderer.prototype.loop = function (time) {
-        drawScene(time);
-        requestAnimationFrame(loop);
-    };
-    WebGLRenderer.prototype.main = function () {
-        var canvas = document.getElementById('canvas');
-        canvas.addEventListener('click', canvasClicked);
-        webGLStart(canvas);
-        loop();
-    };
     return WebGLRenderer;
 }());
