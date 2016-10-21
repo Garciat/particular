@@ -107,15 +107,15 @@ const main = async(function* () {
     var circleBuf = gl.createBuffer();
     var colorBuf = gl.createBuffer();
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, edgeBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, edges, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(edgeLocation);
+    gl.vertexAttribPointer(edgeLocation, 2, gl.FLOAT, false, 8, 0);
+
     function loop() {
         requestAnimationFrame(loop);
 
         regenerate();
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, edgeBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, edges, gl.DYNAMIC_DRAW);
-        gl.enableVertexAttribArray(edgeLocation);
-        gl.vertexAttribPointer(edgeLocation, 2, gl.FLOAT, false, 8, 0);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, circleBuf);
         gl.bufferData(gl.ARRAY_BUFFER, circles, gl.DYNAMIC_DRAW);
