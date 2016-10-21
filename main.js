@@ -88,16 +88,16 @@ const main = async(function* () {
         }
     }
 
-    var resolutionLocation = gl.getUniformLocation(programNode, "u_resolution");
+    var resolutionLocation = gl.getUniformLocation(programNode, 'u_resolution');
     gl.uniform2f(resolutionLocation, SCREENW, SCREENH);
 
     var edgeLocation = 0;
     var circleLocation = 1;
     var colorLocation = 2;
 
-    gl.bindAttribLocation(programNode, edgeLocation, "a_edge");
-    gl.bindAttribLocation(programNode, circleLocation, "a_circle");
-    gl.bindAttribLocation(programNode, colorLocation, "a_color");
+    gl.bindAttribLocation(programNode, edgeLocation, 'a_edge');
+    gl.bindAttribLocation(programNode, circleLocation, 'a_circle');
+    gl.bindAttribLocation(programNode, colorLocation, 'a_color');
 
     var edgeBuf = gl.createBuffer();
     var circleBuf = gl.createBuffer();
@@ -109,7 +109,7 @@ const main = async(function* () {
     gl.vertexAttribPointer(edgeLocation, 2, gl.FLOAT, false, 8, 0);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, colorBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(colorLocation);
     gl.vertexAttribPointer(colorLocation, 4, gl.FLOAT, false, 16, 0);
     gl_ia.vertexAttribDivisorANGLE(colorLocation, 1);
