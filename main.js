@@ -90,24 +90,24 @@ const main = async(function* () {
         }
     }
 
+    var resolutionLocation = gl.getUniformLocation(programNode, "u_resolution");
+    gl.uniform2f(resolutionLocation, SCREENW, SCREENH);
+
+    var positionLocation = gl.getAttribLocation(programNode, "a_position");
+    var colorLocation = gl.getAttribLocation(programNode, "a_color");
+
     var buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 
     function loop() {
         requestAnimationFrame(loop);
 
         regenerate();
 
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.bufferData(
             gl.ARRAY_BUFFER, 
             data,
             gl.DYNAMIC_DRAW);
-
-        var resolutionLocation = gl.getUniformLocation(programNode, "u_resolution");
-        gl.uniform2f(resolutionLocation, SCREENW, SCREENH);
-
-        var positionLocation = gl.getAttribLocation(programNode, "a_position");
-        var colorLocation = gl.getAttribLocation(programNode, "a_color");
 
         gl.enableVertexAttribArray(positionLocation);
         gl.enableVertexAttribArray(colorLocation);
