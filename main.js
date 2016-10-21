@@ -71,12 +71,8 @@ const main = async(function* () {
         edges[iE++] = Math.sin((i + 1) * K);
     }
 
-    function putCircle(x, y, r) {
+    for (let i = 0; i < CIRCLE_COUNT; ++i) {
         let [cx, cy, cz] = hslToGlColor(0, 0.8, 0.2 + 0.6 * Math.random());
-
-        circles[iC++] = x;
-        circles[iC++] = y;
-        circles[iC++] = r;
 
         colors[iK++] = cx;
         colors[iK++] = cy;
@@ -84,11 +80,11 @@ const main = async(function* () {
     }
 
     function regenerate() {
-        iE = iC = iK = 0;
-        for (let m = 0; m < CIRCLE_COUNT; ++m) {
-            putCircle(SCREENW * Math.random(),
-                      SCREENH * Math.random(),
-                      1 + 3 * Math.random());
+        iC = 0;
+        for (let i = 0; i < CIRCLE_COUNT; ++i) {
+            circles[iC++] = SCREENW * Math.random();
+            circles[iC++] = SCREENH * Math.random();
+            circles[iC++] = 1 + 3 * Math.random();
         }
     }
 
@@ -112,6 +108,12 @@ const main = async(function* () {
     gl.enableVertexAttribArray(edgeLocation);
     gl.vertexAttribPointer(edgeLocation, 2, gl.FLOAT, false, 8, 0);
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(colorLocation);
+    gl.vertexAttribPointer(colorLocation, 4, gl.FLOAT, false, 16, 0);
+    gl_ia.vertexAttribDivisorANGLE(colorLocation, 1);
+
     function loop() {
         requestAnimationFrame(loop);
 
@@ -122,12 +124,6 @@ const main = async(function* () {
         gl.enableVertexAttribArray(circleLocation);
         gl.vertexAttribPointer(circleLocation, 3, gl.FLOAT, false, 12, 0);
         gl_ia.vertexAttribDivisorANGLE(circleLocation, 1);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
-        gl.enableVertexAttribArray(colorLocation);
-        gl.vertexAttribPointer(colorLocation, 4, gl.FLOAT, false, 16, 0);
-        gl_ia.vertexAttribDivisorANGLE(colorLocation, 1);
 
         gl.clearColor(0, 0, 0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
