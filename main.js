@@ -52,24 +52,30 @@ const main = async(function* () {
     var CIRCLE_COUNT = 100000;
     var EDGE_COUNT = 10;
 
-    var iE = 0;
-    var edges = new Float32Array(2 * 3 * EDGE_COUNT);
+    var edgesVerts = new Float32Array(2 * (EDGE_COUNT + 1));
+    var edgesIndex = new Uint16Array(3 * EDGE_COUNT);
     var iC = 0;
     var circles = new Float32Array(3 * CIRCLE_COUNT);
     var iK = 0;
     var colors = new Float32Array(4 * CIRCLE_COUNT);
 
-    const K = 2 * Math.PI / EDGE_COUNT;
-    for (let i = 0; i < EDGE_COUNT; ++i) {
-        edges[iE++] = 0;
-        edges[iE++] = 0;
+    function makeCircleGeometry() {
+        let iV = 0;
+        let iI = 0;
+        const K = 2 * Math.PI / EDGE_COUNT;
+        edgesVerts[iV++] = 0;
+        edgesVerts[iV++] = 0;
+        for (let i = 0; i < EDGE_COUNT; ++i) {
+            edgesVerts[iV++] = Math.cos(i * K);
+            edgesVerts[iV++] = Math.sin(i * K);
 
-        edges[iE++] = Math.cos((i + 0) * K);
-        edges[iE++] = Math.sin((i + 0) * K);
-
-        edges[iE++] = Math.cos((i + 1) * K);
-        edges[iE++] = Math.sin((i + 1) * K);
+            edgesIndex[iI++] = 0;
+            edgesIndex[iI++] = i + 1;
+            edgesIndex[iI++] = 1 + (i + 1) % EDGE_COUNT;
+        }
     }
+
+    makeCircleGeometry();
 
     for (let i = 0; i < CIRCLE_COUNT; ++i) {
         let [cx, cy, cz] = hslToGlColor(0, 0.8, 0.2 + 0.6 * Math.random());
@@ -99,14 +105,18 @@ const main = async(function* () {
     gl.bindAttribLocation(programNode, circleLocation, 'a_circle');
     gl.bindAttribLocation(programNode, colorLocation, 'a_color');
 
-    var edgeBuf = gl.createBuffer();
+    var edgeVertsBuf = gl.createBuffer();
+    var edgeIndexBuf = gl.createBuffer();
     var circleBuf = gl.createBuffer();
     var colorBuf = gl.createBuffer();
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, edgeBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, edges, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, edgeVertsBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, edgesVerts, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(edgeLocation);
     gl.vertexAttribPointer(edgeLocation, 2, gl.FLOAT, false, 8, 0);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, edgeIndexBuf);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, edgesIndex, gl.STATIC_DRAW);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, colorBuf);
     gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
@@ -127,7 +137,7 @@ const main = async(function* () {
 
         gl.clearColor(0, 0, 0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl_ia.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 3 * EDGE_COUNT, CIRCLE_COUNT);
+        gl_ia.drawElementsInstancedANGLE(gl.TRIANGLES, edgesIndex.length, gl.UNSIGNED_SHORT, 0, CIRCLE_COUNT);
     }
 
     loop();
