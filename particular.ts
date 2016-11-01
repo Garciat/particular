@@ -476,6 +476,8 @@ async function main() {
 
     const gl = canvas.getContext('webgl');
 
+    console.log(gl.getSupportedExtensions());
+
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.disable(gl.DEPTH_TEST);
