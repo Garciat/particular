@@ -93,8 +93,8 @@ class CircleRenderer {
     async initialize() {
         const gl = this.gl;
 
-        let vertexShader = WebGLHelpers.compileVertexShader(gl, await downloadText('shaders/circle-vs.shader'));
-        let fragmentShader = WebGLHelpers.compileFragmentShader(gl, await downloadText('shaders/circle-fs.shader'));
+        let vertexShader = WebGLHelpers.compileVertexShader(gl, await downloadText('shaders/circle.vert'));
+        let fragmentShader = WebGLHelpers.compileFragmentShader(gl, await downloadText('shaders/circle.frag'));
         let program = WebGLHelpers.makeProgram(gl, [vertexShader, fragmentShader]);
 
         this.glProgram = program;
