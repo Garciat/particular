@@ -183,9 +183,9 @@ class CircleRenderer {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleInfo.subarray(0, 3 * this.circleCount));
-        gl.enableVertexAttribArray(2);
-        gl.vertexAttribPointer(2, 3, gl.FLOAT, false, 12, 0);
-        gl_ia.vertexAttribDivisorANGLE(2, 1);
+        gl.enableVertexAttribArray(this.glA_info);
+        gl.vertexAttribPointer(this.glA_info, 3, gl.FLOAT, false, 12, 0);
+        gl_ia.vertexAttribDivisorANGLE(this.glA_info, 1);
 
         gl_ia.drawArraysInstancedANGLE(gl.TRIANGLE_FAN, 0, CircleRenderer.CIRCLE_EDGE_COUNT + 2, this.circleCount);
     }
