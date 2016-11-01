@@ -4,7 +4,7 @@ class Vec2 {
     x: number;
     y: number;
 
-    constructor(x, y) {
+    constructor(x: number, y: number) {
         this.x = x || 0;
         this.y = y || 0;
     }
@@ -13,7 +13,7 @@ class Vec2 {
         return new Vec2(this.x, this.y);
     }
 
-    distanceTo(v) {
+    distanceTo(v: Vec2) {
         return v.clone().sub_(this).length();
     }
 
@@ -37,41 +37,41 @@ class Vec2 {
         return new Vec2(this.y, -this.x);
     }
 
-    add(v) {
+    add(v: Vec2) {
         return this.clone().add_(v);
     }
 
-    add_(v) {
+    add_(v: Vec2) {
         this.x += v.x;
         this.y += v.y;
         return this;
     }
 
-    sub(v) {
+    sub(v: Vec2) {
         return this.clone().sub_(v);
     }
 
-    sub_(v) {
+    sub_(v: Vec2) {
         this.x -= v.x;
         this.y -= v.y;
         return this;
     }
 
-    smul(k) {
+    smul(k: number) {
         return this.clone().smul_(k);
     }
 
-    smul_(k) {
+    smul_(k: number) {
         this.x *= k;
         this.y *= k;
         return this;
     }
 
-    sdiv(k) {
+    sdiv(k: number) {
         return this.clone().sdiv_(k);
     }
 
-    sdiv_(k) {
+    sdiv_(k: number) {
         this.x /= k;
         this.y /= k;
         return this;
@@ -81,24 +81,24 @@ class Vec2 {
         return Vec2.fromXY(0, 0);
     }
 
-    static fromXY(x, y) {
+    static fromXY(x: number, y: number) {
         return new Vec2(x, y);
     }
 
-    static fromRads(r) {
+    static fromRads(r: number) {
         return Vec2.fromXY(Math.cos(r), Math.sin(r));
     }
 
-    static fromAngle(a) {
+    static fromAngle(a: number) {
         return Vec2.fromRads(a / 360 * TAU);
     }
 }
 
-function uniformI(a, b) {
+function uniformI(a: number, b: number) {
     return Math.floor(a + (b - a) * Math.random());
 }
 
-function uniformF(a, b) {
+function uniformF(a: number, b: number) {
     return a + (b - a) * Math.random();
 }
 
@@ -106,11 +106,11 @@ function randomHsla() {
     return randomHslaWithHue(uniformF(0, 1));
 }
 
-function randomHslaWithHue(hue) {
+function randomHslaWithHue(hue: number) {
     return hslToGlColor(hue, 1, uniformF(0.20, 0.80));
 }
 
-function hslaToColor(hsla) {
+function hslaToColor(hsla: number[]) {
     return `hsla(${hsla[0]}, ${hsla[1]}%, ${hsla[2]}%, ${hsla[3]})`;
 }
 
