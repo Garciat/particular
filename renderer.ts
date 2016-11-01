@@ -155,7 +155,7 @@ class CircleRenderer {
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleColors.subarray(0, 4 * this.circleCount));
     }
 
-    updateCircle(id, x, y) {
+    updateCircle(id: number, x: number, y: number) {
         this.circleInfo[id * 3 + 0] = x;
         this.circleInfo[id * 3 + 1] = y;
     }

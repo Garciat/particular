@@ -118,10 +118,10 @@ class Force {
 // === STATE
 const SCREENW = document.body.clientWidth;
 const SCREENH = document.body.clientHeight;
+const FORCE_RADIUS = 10;
 let particles = [];
 let forces = [];
 let mousePositions = [];
-let particleGenerators = [];
 let mousePosition = Vec2.zero();
 let mouseSpeed = Vec2.zero();
 let shouldProduce = false;
@@ -130,12 +130,6 @@ let controlPressed = false;
 let altPressed = false;
 let clickDown = null;
 let friction = false;
-let showForceGens = true;
-let currentHue = null;
-const COMPOSITE_OPERATION_DEFAULT = 'source-over';
-let compositeOperation = COMPOSITE_OPERATION_DEFAULT;
-const SINK_RADIUS = 10;
-let showParticleSpeedVector = false;
 let circleRendererGlob = null;
 // === HELPERS
 function produceParticlesAtPos(bag, pos, n) {
@@ -208,9 +202,8 @@ window.addEventListener('mousemove', function (ev) {
         else {
             const lastForce = forces[forces.length - 1];
             if (pos.distanceTo(lastForce.pos) > 25) {
-                const size = 10;
                 const color = circleRendererGlob.getCircleColor(lastForce.shapeID);
-                const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, size, color);
+                const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, FORCE_RADIUS, color);
                 forces.push(new Force(pos, lastForce.value, shapeID));
                 circleRendererGlob.flushCircles();
             }
@@ -241,8 +234,7 @@ window.addEventListener('mousedown', function (ev) {
             forceValue *= -1;
             color = [0, 0, 1, 1];
         }
-        const size = 10;
-        const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, size, color);
+        const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, FORCE_RADIUS, color);
         forces.push(new Force(pos, forceValue, shapeID));
         circleRendererGlob.flushCircles();
     }
@@ -272,20 +264,14 @@ window.addEventListener('keydown', function (ev) {
         friction = !friction;
     }
     else if (ev.keyCode === 68) {
-        forces = forces.filter(f => f.pos.distanceTo(mousePosition) > SINK_RADIUS);
-        particleGenerators = particleGenerators.filter(f => f.pos.distanceTo(mousePosition) > SINK_RADIUS);
+        forces = forces.filter(f => f.pos.distanceTo(mousePosition) > FORCE_RADIUS);
     }
     else if (ev.keyCode === 72) {
-        showForceGens = !showForceGens;
-    }
-    else if (ev.keyCode === 67) {
-        compositeOperation = prompt('Composite operation', compositeOperation) || COMPOSITE_OPERATION_DEFAULT;
     }
     else if (ev.keyCode === 90) {
         forces = forces.slice(0, forces.length - 1);
     }
     else if (ev.keyCode === 86) {
-        showParticleSpeedVector = !showParticleSpeedVector;
     }
 });
 window.addEventListener('keyup', function (ev) {
@@ -304,9 +290,6 @@ setInterval(function () {
     if (shouldProduce) {
         produceParticlesAtPos(particles, mousePosition, uniformI(10, 20));
     }
-    particleGenerators.forEach(gen => {
-        produceParticlesAtPos(particles, gen.pos, uniformI(1, gen.value));
-    });
 }, 16);
 // clean up out-of-bounds particles
 setInterval(function () {
@@ -319,7 +302,7 @@ setInterval(function () {
 function applyGravity(sink, subject) {
     const dpos = sink.pos.sub(subject.pos);
     const dd = dpos.length();
-    if (dd <= SINK_RADIUS) {
+    if (dd <= FORCE_RADIUS) {
         return;
     }
     const ir2 = Math.pow(dd, 2);
