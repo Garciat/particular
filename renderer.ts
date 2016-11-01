@@ -1,6 +1,3 @@
-// import 'es6-promise';
-/// <reference path="node_modules/@types/es6-promise/index.d.ts" />
-
 function downloadText(url: string) {
     let xhr = new XMLHttpRequest();
 
@@ -52,14 +49,204 @@ class WebGLHelpers {
 
         return program;
     }
+
+    static createSizedArray(gl: WebGLRenderingContext, size: number, usage: number) {
+        let buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, size, usage);
+        return buffer;
+    }
 }
 
-class WebGLRenderer {
-    
-    gl: WebGLRenderingContext;
+class CircleRenderer {
+    static CIRCLE_EDGE_COUNT = 10;
+    static MAX_CIRCLE_COUNT = 100000;
 
-    constructor(canvas: HTMLCanvasElement) {
-        this.gl = canvas.getContext('webgl');
-        this.gl.viewport(0, 0, canvas.width, canvas.height);
+    gl: WebGLRenderingContext;
+    gl_ia: ANGLE_instanced_arrays;
+
+    circleGeometry: Float32Array;
+    circleColors: Float32Array;
+    circleInfo: Float32Array;
+    circleCount: number;
+
+    glProgram: WebGLProgram;
+    glBufferGeometry: WebGLBuffer;
+    glBufferColors: WebGLBuffer;
+    glBufferInfo: WebGLBuffer;
+
+    glU_resolution: WebGLUniformLocation;
+    glA_edge: number;
+    glA_color: number;
+    glA_info: number;
+
+    constructor(gl: WebGLRenderingContext) {
+        this.gl = gl;
+        this.gl_ia = gl.getExtension('ANGLE_instanced_arrays');
+
+        this.circleGeometry = new Float32Array(2 * (CircleRenderer.CIRCLE_EDGE_COUNT + 2));
+        this.circleColors = new Float32Array(4 * CircleRenderer.MAX_CIRCLE_COUNT);
+        this.circleInfo = new Float32Array(3 * CircleRenderer.MAX_CIRCLE_COUNT);
+        this.circleCount = 0;
     }
+
+    async initialize() {
+        const gl = this.gl;
+
+        let vertexShader = WebGLHelpers.compileVertexShader(gl, await downloadText('shaders/circle-vs.shader'));
+        let fragmentShader = WebGLHelpers.compileFragmentShader(gl, await downloadText('shaders/circle-fs.shader'));
+        let program = WebGLHelpers.makeProgram(gl, [vertexShader, fragmentShader]);
+
+        this.glProgram = program;
+        this.glBufferGeometry = WebGLHelpers.createSizedArray(gl, this.circleGeometry.byteLength, gl.STATIC_DRAW);
+        this.glBufferColors = WebGLHelpers.createSizedArray(gl, this.circleColors.byteLength, gl.STATIC_DRAW);
+        this.glBufferInfo = WebGLHelpers.createSizedArray(gl, this.circleInfo.byteLength, gl.DYNAMIC_DRAW);
+
+        let iV = 0;
+        const K = 2 * Math.PI / CircleRenderer.CIRCLE_EDGE_COUNT;
+        this.circleGeometry[iV++] = 0;
+        this.circleGeometry[iV++] = 0;
+        for (let i = 0; i <= CircleRenderer.CIRCLE_EDGE_COUNT; ++i) {
+            this.circleGeometry[iV++] = Math.cos(i * K);
+            this.circleGeometry[iV++] = Math.sin(i * K);
+        }
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferGeometry);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleGeometry);
+
+        this.glU_resolution = gl.getUniformLocation(program, 'u_resolution');
+        
+        this.glA_edge = 0;
+        this.glA_color = 1;
+        this.glA_info = 2;
+        gl.bindAttribLocation(program, this.glA_edge, 'a_edge');
+        gl.bindAttribLocation(program, this.glA_color, 'a_color');
+        gl.bindAttribLocation(program, this.glA_info, 'a_info');
+    }
+
+    addCircle(x: number, y: number, r: number, color: number[]) {
+        const id = this.circleCount;
+
+        this.circleInfo[id * 3 + 0] = x;
+        this.circleInfo[id * 3 + 1] = y;
+        this.circleInfo[id * 3 + 2] = r;
+
+        this.circleColors[id * 4 + 0] = color[0];
+        this.circleColors[id * 4 + 1] = color[1];
+        this.circleColors[id * 4 + 2] = color[2];
+        this.circleColors[id * 4 + 3] = color[3];
+
+        this.circleCount += 1;
+
+        return id;
+    }
+
+    flushCircles() {
+        const gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferColors);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleColors.subarray(0, 4 * this.circleCount));
+    }
+
+    updateCircle(id, x, y) {
+        this.circleInfo[id * 3 + 0] = x;
+        this.circleInfo[id * 3 + 1] = y;
+    }
+
+    removeCircle(id) {
+        // TODO
+    }
+
+    draw() {
+        const gl = this.gl;
+        const gl_ia = this.gl_ia;
+
+        gl.useProgram(this.glProgram);
+
+        gl.uniform2f(this.glU_resolution, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferGeometry);
+        gl.enableVertexAttribArray(this.glA_edge);
+        gl.vertexAttribPointer(this.glA_edge, 2, gl.FLOAT, false, 8, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferColors);
+        gl.enableVertexAttribArray(this.glA_color);
+        gl.vertexAttribPointer(this.glA_color, 4, gl.FLOAT, false, 16, 0);
+        gl_ia.vertexAttribDivisorANGLE(this.glA_color, 1);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleInfo.subarray(0, 3 * this.circleCount));
+        gl.enableVertexAttribArray(2);
+        gl.vertexAttribPointer(2, 3, gl.FLOAT, false, 12, 0);
+        gl_ia.vertexAttribDivisorANGLE(2, 1);
+
+        gl_ia.drawArraysInstancedANGLE(gl.TRIANGLE_FAN, 0, CircleRenderer.CIRCLE_EDGE_COUNT + 2, this.circleCount);
+    }
+}
+
+async function main() {
+    const SCREENW = document.body.clientWidth;
+    const SCREENH = document.body.clientHeight;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = SCREENW;
+    canvas.height = SCREENH;
+    document.body.appendChild(canvas);
+
+    const gl = canvas.getContext('webgl');
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.disable(gl.DEPTH_TEST);
+
+    const circleRenderer = new CircleRenderer(gl);
+    await circleRenderer.initialize();
+    
+    const CIRCLE_COUNT = 10000;
+
+    for (let i = 0; i < CIRCLE_COUNT; ++i) {
+        let x = SCREENW * Math.random();
+        let y = SCREENH * Math.random();
+        let r = 1 + 5 * Math.random();
+        let [cx, cy, cz] = hslToGlColor(Math.random(), 0.8, 0.2 + 0.6 * Math.random());
+
+        circleRenderer.addCircle(x, y, r, [cx, cy, cz, 1]);
+    }
+
+    circleRenderer.flushCircles();
+
+    function loop() {
+        requestAnimationFrame(loop);
+
+        gl.clearColor(0, 0, 0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
+        circleRenderer.draw();
+    }
+
+    loop();
+}
+
+function hue2rgb(p, q, t){
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+}
+
+function hslToGlColor(h, s, l) {
+    var r, g, b;
+
+    if (s == 0) {
+        r = g = b = l; // achromatic
+    } else {
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+    }
+
+    return [r, g, b];
 }
