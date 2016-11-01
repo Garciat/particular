@@ -100,6 +100,13 @@ class CircleRenderer {
         this.circleCount += 1;
         return id;
     }
+    getCircleColor(id) {
+        let r = this.circleColors[id * 4 + 0];
+        let g = this.circleColors[id * 4 + 1];
+        let b = this.circleColors[id * 4 + 2];
+        let a = this.circleColors[id * 4 + 3];
+        return [r, g, b, a];
+    }
     flushCircles() {
         const gl = this.gl;
         gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferColors);
@@ -134,38 +141,6 @@ class CircleRenderer {
 }
 CircleRenderer.CIRCLE_EDGE_COUNT = 10;
 CircleRenderer.MAX_CIRCLE_COUNT = 100000;
-function main() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const SCREENW = document.body.clientWidth;
-        const SCREENH = document.body.clientHeight;
-        const canvas = document.createElement('canvas');
-        canvas.width = SCREENW;
-        canvas.height = SCREENH;
-        document.body.appendChild(canvas);
-        const gl = canvas.getContext('webgl');
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.ONE, gl.ONE);
-        gl.disable(gl.DEPTH_TEST);
-        const circleRenderer = new CircleRenderer(gl);
-        yield circleRenderer.initialize();
-        const CIRCLE_COUNT = 10000;
-        for (let i = 0; i < CIRCLE_COUNT; ++i) {
-            let x = SCREENW * Math.random();
-            let y = SCREENH * Math.random();
-            let r = 1 + 5 * Math.random();
-            let [cx, cy, cz] = hslToGlColor(Math.random(), 0.8, 0.2 + 0.6 * Math.random());
-            circleRenderer.addCircle(x, y, r, [cx, cy, cz, 1]);
-        }
-        circleRenderer.flushCircles();
-        function loop() {
-            requestAnimationFrame(loop);
-            gl.clearColor(0, 0, 0, 1.0);
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            circleRenderer.draw();
-        }
-        loop();
-    });
-}
 function hue2rgb(p, q, t) {
     if (t < 0)
         t += 1;

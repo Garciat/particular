@@ -141,6 +141,14 @@ class CircleRenderer {
         return id;
     }
 
+    getCircleColor(id: number) {
+        let r = this.circleColors[id * 4 + 0];
+        let g = this.circleColors[id * 4 + 1];
+        let b = this.circleColors[id * 4 + 2];
+        let a = this.circleColors[id * 4 + 3];
+        return [r, g, b, a];
+    }
+
     flushCircles() {
         const gl = this.gl;
         gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferColors);
@@ -183,50 +191,7 @@ class CircleRenderer {
     }
 }
 
-async function main() {
-    const SCREENW = document.body.clientWidth;
-    const SCREENH = document.body.clientHeight;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = SCREENW;
-    canvas.height = SCREENH;
-    document.body.appendChild(canvas);
-
-    const gl = canvas.getContext('webgl');
-
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    gl.disable(gl.DEPTH_TEST);
-
-    const circleRenderer = new CircleRenderer(gl);
-    await circleRenderer.initialize();
-    
-    const CIRCLE_COUNT = 10000;
-
-    for (let i = 0; i < CIRCLE_COUNT; ++i) {
-        let x = SCREENW * Math.random();
-        let y = SCREENH * Math.random();
-        let r = 1 + 5 * Math.random();
-        let [cx, cy, cz] = hslToGlColor(Math.random(), 0.8, 0.2 + 0.6 * Math.random());
-
-        circleRenderer.addCircle(x, y, r, [cx, cy, cz, 1]);
-    }
-
-    circleRenderer.flushCircles();
-
-    function loop() {
-        requestAnimationFrame(loop);
-
-        gl.clearColor(0, 0, 0, 1.0);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        circleRenderer.draw();
-    }
-
-    loop();
-}
-
-function hue2rgb(p, q, t){
+function hue2rgb(p: number, q: number, t: number): number {
     if (t < 0) t += 1;
     if (t > 1) t -= 1;
     if (t < 1/6) return p + (q - p) * 6 * t;
@@ -235,7 +200,7 @@ function hue2rgb(p, q, t){
     return p;
 }
 
-function hslToGlColor(h, s, l) {
+function hslToGlColor(h: number, s: number, l: number): number[] {
     var r, g, b;
 
     if (s == 0) {
