@@ -98,21 +98,30 @@ function randomDirectionVec2() {
 }
 // === ENTITIES
 class Particle {
-    constructor(pos, spd, trace, shapeID) {
-        this.deleted = false;
-        this.active = false;
-        this.trace = Boolean(trace);
-        this.pos = pos.clone();
-        this.spd = spd.clone();
-        this.path = [];
+    constructor(pos, spd, shapeID) {
+        this.posX = pos.x;
+        this.posY = pos.y;
+        this.velX = spd.x;
+        this.velY = spd.y;
         this.shapeID = shapeID;
+    }
+    distanceToVec2(v) {
+        let dx = this.posX - v.x;
+        let dy = this.posY - v.y;
+        return Math.sqrt(dx * dx + dy * dy);
     }
 }
 class Force {
     constructor(pos, value, shapeID) {
-        this.pos = pos.clone();
+        this.posX = pos.x;
+        this.posY = pos.y;
         this.value = value;
         this.shapeID = shapeID;
+    }
+    distanceToVec2(v) {
+        let dx = this.posX - v.x;
+        let dy = this.posY - v.y;
+        return Math.sqrt(dx * dx + dy * dy);
     }
 }
 // === STATE
@@ -136,7 +145,7 @@ function putParticle(bag, x, y) {
     const size = uniformI(2, 6);
     const color = randomHsla();
     const shapeID = circleRendererGlob.addCircle(x, y, size, color);
-    bag.push(new Particle(new Vec2(x, y), Vec2.zero(), false, shapeID));
+    bag.push(new Particle(new Vec2(x, y), Vec2.zero(), shapeID));
 }
 function produceParticlesAtPos(bag, pos, n) {
     for (let i = 0; i < n; ++i) {
@@ -144,7 +153,7 @@ function produceParticlesAtPos(bag, pos, n) {
         const size = uniformI(2, 6);
         const color = randomHsla();
         const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, size, color);
-        bag.push(new Particle(pos, spd, false, shapeID));
+        bag.push(new Particle(pos, spd, shapeID));
     }
     circleRendererGlob.flushCircles();
 }
@@ -155,50 +164,29 @@ function updateMouseSpeed(pos) {
     }
     const n = mousePositions.length;
     let spd = Vec2.zero();
-    for (var i = 1; i < n; ++i) {
+    for (let i = 1; i < n; ++i) {
         spd.add_(mousePositions[i]);
         spd.sub_(mousePositions[i - 1]);
     }
     spd.sdiv_(n);
     mouseSpeed = spd;
 }
-function cleanOutOfBounds(bag) {
-    var nP = bag.length;
-    var ds = 0;
-    for (var iP = 0; iP < nP; ++iP) {
-        var p = bag[iP];
-        if (p.deleted) {
-            ds += 1;
-            continue;
-        }
-        if (!checkBounds(p)) {
-            p.deleted = true;
-        }
-    }
-    if (ds > 5000) {
-        return bag.filter(p => !p.deleted);
-    }
-    return null;
-}
 function checkBounds(subject) {
-    return subject.pos.x >= 0 &&
-        subject.pos.y >= 0 &&
-        subject.pos.x <= SCREENW &&
-        subject.pos.y <= SCREENH;
+    return subject.posX >= 0 &&
+        subject.posY >= 0 &&
+        subject.posX <= SCREENW &&
+        subject.posY <= SCREENH;
 }
 // === EVENTS
-window.addEventListener('touchend', function (ev) {
-    shouldProduce = false;
-});
 window.addEventListener('mousemove', function (ev) {
     const pos = Vec2.fromXY(ev.clientX, ev.clientY);
     if (clickDown === 1 && particles.length > 0) {
         const lastParticle = particles[particles.length - 1];
-        if (pos.distanceTo(lastParticle.pos) > 25) {
+        if (lastParticle.distanceToVec2(pos) > 25) {
             const size = uniformI(2, 6);
             const color = circleRendererGlob.getCircleColor(lastParticle.shapeID);
             const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, size, color);
-            particles.push(new Particle(pos, Vec2.zero(), true, shapeID));
+            particles.push(new Particle(pos, Vec2.zero(), shapeID));
             circleRendererGlob.flushCircles();
         }
     }
@@ -207,7 +195,7 @@ window.addEventListener('mousemove', function (ev) {
         }
         else {
             const lastForce = forces[forces.length - 1];
-            if (pos.distanceTo(lastForce.pos) > 25) {
+            if (lastForce.distanceToVec2(pos) > 25) {
                 const color = circleRendererGlob.getCircleColor(lastForce.shapeID);
                 const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, FORCE_RADIUS, color);
                 forces.push(new Force(pos, lastForce.value, shapeID));
@@ -230,7 +218,7 @@ window.addEventListener('mousedown', function (ev) {
         const size = uniformI(2, 6);
         const color = randomHsla();
         const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, size, color);
-        particles.push(new Particle(pos, Vec2.zero(), true, shapeID));
+        particles.push(new Particle(pos, Vec2.zero(), shapeID));
         circleRendererGlob.flushCircles();
     }
     else if (ev.button === 2) {
@@ -250,7 +238,6 @@ window.addEventListener('mouseup', function (ev) {
     if (ev.button === 0) {
         shouldProduce = false;
     }
-    particles.filter(p => p.trace).forEach(p => p.active = true);
     clickDown = null;
 });
 window.addEventListener('keydown', function (ev) {
@@ -270,7 +257,7 @@ window.addEventListener('keydown', function (ev) {
         friction = !friction;
     }
     else if (ev.keyCode === 68) {
-        forces = forces.filter(f => f.pos.distanceTo(mousePosition) > FORCE_RADIUS);
+        forces = forces.filter(f => f.distanceToVec2(mousePosition) > FORCE_RADIUS);
     }
     else if (ev.keyCode === 72) {
     }
@@ -297,79 +284,52 @@ setInterval(function () {
         produceParticlesAtPos(particles, mousePosition, uniformI(10, 20));
     }
 }, 16);
-// clean up out-of-bounds particles
-setInterval(function () {
-    var newParticles = cleanOutOfBounds(particles);
-    if (newParticles) {
-        particles = newParticles;
-    }
-}, 5000);
-// === DRAWING
-function applySpeed(subject) {
-    subject.pos.x += subject.spd.x;
-    subject.pos.y += subject.spd.y;
+// === PHYSICS
+function applySpeed(particle) {
+    particle.posX += particle.velX;
+    particle.posY += particle.velY;
 }
-function applyGravity(sink, subject) {
-    let fx = sink.pos.x;
-    let fy = sink.pos.y;
-    let sx = subject.pos.x;
-    let sy = subject.pos.y;
+function applyGravity(force, particle) {
+    let fx = force.posX;
+    let fy = force.posY;
+    let sx = particle.posX;
+    let sy = particle.posY;
     let dx = fx - sx;
     let dy = fy - sy;
     let dd = dx * dx + dy * dy;
     if (dd <= FORCE_RADIUS * FORCE_RADIUS) {
         return;
     }
-    let k = sink.value / dd;
+    let k = force.value / dd;
     let vx = dx * k;
     let vy = dy * k;
-    subject.spd.x += vx;
-    subject.spd.y += vy;
+    particle.velX += vx;
+    particle.velY += vy;
 }
 function applyFriction(subject) {
-    subject.spd.x -= 0.05 * subject.spd.x;
-    subject.spd.y -= 0.05 * subject.spd.y;
-}
-function drawVector(ctx, pos, vec, scale, color) {
-    const vecS = pos.add(vec.smul(scale));
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
-    ctx.lineTo(vecS.x, vecS.y);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    subject.velX -= 0.05 * subject.velX;
+    subject.velY -= 0.05 * subject.velY;
 }
 function simulate() {
-    var nP = particles.length;
-    var nF = forces.length;
-    for (var iP = 0; iP < nP; ++iP) {
-        var particle = particles[iP];
-        if (particle.deleted) {
-            continue;
-        }
-        if (particle.trace && !particle.active) {
-            continue;
-        }
+    const nP = particles.length;
+    const nF = forces.length;
+    for (let iP = 0; iP < nP; ++iP) {
+        const particle = particles[iP];
         applySpeed(particle);
         for (var iF = 0; iF < nF; ++iF) {
-            applyGravity(forces[iF], particle);
+            const force = forces[iF];
+            applyGravity(force, particle);
         }
         if (friction) {
             applyFriction(particle);
         }
-        if (particle.trace) {
-            particle.path.push(particle.pos.clone());
-        }
     }
 }
 function updateParticlePositions() {
-    var nP = particles.length;
-    for (var iP = 0; iP < nP; ++iP) {
-        var particle = particles[iP];
-        if (particle.deleted) {
-            continue;
-        }
-        circleRendererGlob.updateCircle(particle.shapeID, particle.pos.x, particle.pos.y);
+    const nP = particles.length;
+    for (let iP = 0; iP < nP; ++iP) {
+        const particle = particles[iP];
+        circleRendererGlob.updateCircle(particle.shapeID, particle.posX, particle.posY);
     }
 }
 function physicsLoop() {
@@ -424,6 +384,9 @@ function main() {
         });
         canvas.addEventListener('contextmenu', function (ev) {
             ev.preventDefault();
+        });
+        window.addEventListener('touchend', function (ev) {
+            shouldProduce = false;
         });
     });
 }
