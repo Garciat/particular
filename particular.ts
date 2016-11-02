@@ -374,6 +374,11 @@ setInterval(function () {
 
 // === DRAWING
 
+function applySpeed(subject) {
+    subject.pos.x += subject.spd.x;
+    subject.pos.y += subject.spd.y;
+}
+
 function applyGravity(sink, subject) {
     let fx = sink.pos.x;
     let fy = sink.pos.y;
@@ -427,7 +432,7 @@ function simulate() {
             continue;
         }
 
-        particle.pos.add_(particle.spd);
+        applySpeed(particle);
 
         for (var iF = 0; iF < nF; ++iF) {
             applyGravity(forces[iF], particle);
