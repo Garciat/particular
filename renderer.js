@@ -141,6 +141,75 @@ class CircleRenderer {
 }
 CircleRenderer.CIRCLE_EDGE_COUNT = 10;
 CircleRenderer.MAX_CIRCLE_COUNT = 100000;
+class PointRenderer {
+    constructor(gl) {
+        this.gl = gl;
+        this.circleColors = new Float32Array(4 * PointRenderer.MAX_CIRCLE_COUNT);
+        this.circleInfo = new Float32Array(2 * PointRenderer.MAX_CIRCLE_COUNT);
+        this.circleCount = 0;
+    }
+    initialize() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const gl = this.gl;
+            let vertexShader = WebGLHelpers.compileVertexShader(gl, yield downloadText('shaders/point.vert'));
+            let fragmentShader = WebGLHelpers.compileFragmentShader(gl, yield downloadText('shaders/point.frag'));
+            let program = WebGLHelpers.makeProgram(gl, [vertexShader, fragmentShader]);
+            this.glProgram = program;
+            this.glBufferColors = WebGLHelpers.createSizedArray(gl, this.circleColors.byteLength, gl.STATIC_DRAW);
+            this.glBufferInfo = WebGLHelpers.createSizedArray(gl, this.circleInfo.byteLength, gl.DYNAMIC_DRAW);
+            this.glU_resolution = gl.getUniformLocation(program, 'u_resolution');
+            this.glA_color = 0;
+            this.glA_info = 1;
+            gl.bindAttribLocation(program, this.glA_color, 'a_color');
+            gl.bindAttribLocation(program, this.glA_info, 'a_info');
+        });
+    }
+    addCircle(x, y, r, color) {
+        const id = this.circleCount;
+        this.circleInfo[id * 2 + 0] = x;
+        this.circleInfo[id * 2 + 1] = y;
+        this.circleColors[id * 4 + 0] = color[0];
+        this.circleColors[id * 4 + 1] = color[1];
+        this.circleColors[id * 4 + 2] = color[2];
+        this.circleColors[id * 4 + 3] = color[3];
+        this.circleCount += 1;
+        return id;
+    }
+    getCircleColor(id) {
+        let r = this.circleColors[id * 4 + 0];
+        let g = this.circleColors[id * 4 + 1];
+        let b = this.circleColors[id * 4 + 2];
+        let a = this.circleColors[id * 4 + 3];
+        return [r, g, b, a];
+    }
+    flushCircles() {
+        const gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferColors);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleColors.subarray(0, 4 * this.circleCount));
+    }
+    updateCircle(id, x, y) {
+        this.circleInfo[id * 2 + 0] = x;
+        this.circleInfo[id * 2 + 1] = y;
+    }
+    removeCircle(id) {
+        // TODO
+    }
+    draw() {
+        const gl = this.gl;
+        gl.useProgram(this.glProgram);
+        gl.uniform2f(this.glU_resolution, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferColors);
+        gl.enableVertexAttribArray(this.glA_color);
+        gl.vertexAttribPointer(this.glA_color, 4, gl.FLOAT, false, 16, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleInfo.subarray(0, 3 * this.circleCount));
+        gl.enableVertexAttribArray(this.glA_info);
+        gl.vertexAttribPointer(this.glA_info, 2, gl.FLOAT, false, 8, 0);
+        gl.drawArrays(gl.POINTS, 0, this.circleCount);
+    }
+}
+PointRenderer.CIRCLE_EDGE_COUNT = 10;
+PointRenderer.MAX_CIRCLE_COUNT = 1000000;
 function hue2rgb(p, q, t) {
     if (t < 0)
         t += 1;

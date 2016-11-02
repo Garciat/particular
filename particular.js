@@ -139,12 +139,12 @@ let controlPressed = false;
 let altPressed = false;
 let clickDown = null;
 let friction = false;
-let circleRendererGlob = null;
+let particleRendererGlob = null;
 // === HELPERS
 function putParticle(bag, x, y) {
     const size = uniformI(2, 6);
     const color = randomHsla();
-    const shapeID = circleRendererGlob.addCircle(x, y, size, color);
+    const shapeID = particleRendererGlob.addCircle(x, y, size, color);
     bag.push(new Particle(new Vec2(x, y), Vec2.zero(), shapeID));
 }
 function produceParticlesAtPos(bag, pos, n) {
@@ -152,10 +152,10 @@ function produceParticlesAtPos(bag, pos, n) {
         const spd = randomDirectionVec2().smul_(5 * Math.random() + 5);
         const size = uniformI(2, 6);
         const color = randomHsla();
-        const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, size, color);
+        const shapeID = particleRendererGlob.addCircle(pos.x, pos.y, size, color);
         bag.push(new Particle(pos, spd, shapeID));
     }
-    circleRendererGlob.flushCircles();
+    particleRendererGlob.flushCircles();
 }
 function updateMouseSpeed(pos) {
     mousePositions.push(pos);
@@ -184,10 +184,10 @@ window.addEventListener('mousemove', function (ev) {
         const lastParticle = particles[particles.length - 1];
         if (lastParticle.distanceToVec2(pos) > 25) {
             const size = uniformI(2, 6);
-            const color = circleRendererGlob.getCircleColor(lastParticle.shapeID);
-            const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, size, color);
+            const color = particleRendererGlob.getCircleColor(lastParticle.shapeID);
+            const shapeID = particleRendererGlob.addCircle(pos.x, pos.y, size, color);
             particles.push(new Particle(pos, Vec2.zero(), shapeID));
-            circleRendererGlob.flushCircles();
+            particleRendererGlob.flushCircles();
         }
     }
     else if (clickDown === 2 && forces.length > 0) {
@@ -196,10 +196,10 @@ window.addEventListener('mousemove', function (ev) {
         else {
             const lastForce = forces[forces.length - 1];
             if (lastForce.distanceToVec2(pos) > 25) {
-                const color = circleRendererGlob.getCircleColor(lastForce.shapeID);
-                const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, FORCE_RADIUS, color);
+                const color = particleRendererGlob.getCircleColor(lastForce.shapeID);
+                const shapeID = particleRendererGlob.addCircle(pos.x, pos.y, FORCE_RADIUS, color);
                 forces.push(new Force(pos, lastForce.value, shapeID));
-                circleRendererGlob.flushCircles();
+                particleRendererGlob.flushCircles();
             }
         }
     }
@@ -217,9 +217,9 @@ window.addEventListener('mousedown', function (ev) {
     else if (ev.button === 1) {
         const size = uniformI(2, 6);
         const color = randomHsla();
-        const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, size, color);
+        const shapeID = particleRendererGlob.addCircle(pos.x, pos.y, size, color);
         particles.push(new Particle(pos, Vec2.zero(), shapeID));
-        circleRendererGlob.flushCircles();
+        particleRendererGlob.flushCircles();
     }
     else if (ev.button === 2) {
         let forceValue = 10;
@@ -228,9 +228,9 @@ window.addEventListener('mousedown', function (ev) {
             forceValue *= -1;
             color = [0, 0, 1, 1];
         }
-        const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, FORCE_RADIUS, color);
+        const shapeID = particleRendererGlob.addCircle(pos.x, pos.y, FORCE_RADIUS, color);
         forces.push(new Force(pos, forceValue, shapeID));
-        circleRendererGlob.flushCircles();
+        particleRendererGlob.flushCircles();
     }
     clickDown = ev.button;
 });
@@ -329,7 +329,7 @@ function updateParticlePositions() {
     const nP = particles.length;
     for (let iP = 0; iP < nP; ++iP) {
         const particle = particles[iP];
-        circleRendererGlob.updateCircle(particle.shapeID, particle.posX, particle.posY);
+        particleRendererGlob.updateCircle(particle.shapeID, particle.posX, particle.posY);
     }
 }
 function physicsLoop() {
@@ -347,27 +347,37 @@ function main() {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE);
         gl.disable(gl.DEPTH_TEST);
-        const circleRenderer = new CircleRenderer(gl);
-        yield circleRenderer.initialize();
-        circleRendererGlob = circleRenderer;
-        if (location.hash.length > 0) {
-            const args = location.hash.slice(1).split('&').map(s => s.split('=')).reduce((o, p) => (o[p[0]] = p[1], o), {});
-            if (args['fill']) {
-                const n = parseInt(args['fill']);
-                for (let i = 0; i < n; ++i) {
-                    let x = SCREENW * Math.random();
-                    let y = SCREENH * Math.random();
-                    putParticle(particles, x, y);
-                }
-                circleRenderer.flushCircles();
+        const args = location.hash.slice(1).split('&').filter(s => s).map(s => s.split('=')).reduce((o, p) => (o[p[0]] = p[1], o), {});
+        const renderer = args['renderer'] || 'circle';
+        let particleRenderer;
+        switch (renderer) {
+            case 'circle':
+                particleRenderer = new CircleRenderer(gl);
+                break;
+            case 'point':
+                particleRenderer = new PointRenderer(gl);
+                break;
+            default:
+                alert('no such renderer!');
+                throw new Error();
+        }
+        yield particleRenderer.initialize();
+        particleRendererGlob = particleRenderer;
+        if (args['fill']) {
+            const n = parseInt(args['fill']);
+            for (let i = 0; i < n; ++i) {
+                let x = SCREENW * Math.random();
+                let y = SCREENH * Math.random();
+                putParticle(particles, x, y);
             }
+            particleRenderer.flushCircles();
         }
         function loop() {
             requestAnimationFrame(loop);
             physicsLoop();
             gl.clearColor(0, 0, 0, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            circleRenderer.draw();
+            particleRenderer.draw();
         }
         loop();
         canvas.addEventListener('touchstart', function (ev) {
