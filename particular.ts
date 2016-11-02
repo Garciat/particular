@@ -187,6 +187,13 @@ let circleRendererGlob: CircleRenderer = null;
 
 // === HELPERS
 
+function putParticle(bag, x, y) {
+    const size = uniformI(2, 6);
+    const color = randomHsla();
+    const shapeID = circleRendererGlob.addCircle(x, y, size, color);
+    bag.push(new Particle(new Vec2(x, y), Vec2.zero(), false, shapeID));
+}
+
 function produceParticlesAtPos(bag, pos, n) {
     for (let i = 0; i < n; ++i) {
         const spd = randomDirectionVec2().smul_(5 * Math.random() + 5);
@@ -368,22 +375,32 @@ setInterval(function () {
 // === DRAWING
 
 function applyGravity(sink, subject) {
-    const dpos = sink.pos.sub(subject.pos);
-    const dd = dpos.length();
+    let fx = sink.pos.x;
+    let fy = sink.pos.y;
+    let sx = subject.pos.x;
+    let sy = subject.pos.y;
 
-    if (dd <= FORCE_RADIUS) {
+    let dx = fx - sx;
+    let dy = fy - sy;
+
+    let dd = dx * dx + dy * dy;
+
+    if (dd <= FORCE_RADIUS * FORCE_RADIUS) {
         return;
     }
 
-    const ir2 = Math.pow(dd, 2);
+    let k = sink.value / dd;
 
-    const vel = dpos.sdiv(dd).smul(100 * sink.value / ir2);
+    let vx = dx * k;
+    let vy = dy * k;
 
-    subject.spd.add_(vel);
+    subject.spd.x += vx;
+    subject.spd.y += vy;
 }
 
 function applyFriction(subject) {
-    subject.spd.add_(subject.spd.smul(-0.05));
+    subject.spd.x -= 0.05 * subject.spd.x;
+    subject.spd.y -= 0.05 * subject.spd.y;
 }
 
 function drawVector(ctx, pos, vec, scale, color) {
@@ -445,8 +462,6 @@ function physicsLoop() {
     updateParticlePositions();
 }
 
-setInterval(physicsLoop, 20);
-
 async function main() {
 
     const canvas = document.createElement('canvas');
@@ -466,9 +481,25 @@ async function main() {
     await circleRenderer.initialize();
 
     circleRendererGlob = circleRenderer;
+
+    if (location.hash.length > 0) {
+        const args = location.hash.slice(1).split('&').map(s => s.split('=')).reduce((o, p) => (o[p[0]] = p[1], o), {});
+
+        if (args['fill']) {
+            const n = parseInt(args['fill']);
+            for (let i = 0; i < n; ++i) {
+                let x = SCREENW * Math.random();
+                let y = SCREENH * Math.random();
+                putParticle(particles, x, y);
+            }
+            circleRenderer.flushCircles();
+        }
+    }
     
     function loop() {
         requestAnimationFrame(loop);
+
+        physicsLoop();
 
         gl.clearColor(0, 0, 0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
