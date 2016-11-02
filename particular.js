@@ -99,14 +99,16 @@ function randomDirectionVec2() {
 // === ENTITIES
 class Particle {
     constructor(pos, spd, trace, shapeID) {
-        this.deleted = false;
-        this.active = false;
-        this.trace = Boolean(trace);
         this.posX = pos.x;
         this.posY = pos.y;
         this.velX = spd.x;
         this.velY = spd.y;
         this.shapeID = shapeID;
+    }
+    distanceToVec2(v) {
+        let dx = this.posX - v.x;
+        let dy = this.posY - v.y;
+        return Math.sqrt(dx * dx + dy * dy);
     }
     getPos() {
         return new Vec2(this.posX, this.posY);
@@ -114,15 +116,21 @@ class Particle {
 }
 class Force {
     constructor(pos, value, shapeID) {
-        this.pos = pos.clone();
+        this.posX = pos.x;
+        this.posY = pos.y;
         this.value = value;
         this.shapeID = shapeID;
+    }
+    distanceToVec2(v) {
+        let dx = this.posX - v.x;
+        let dy = this.posY - v.y;
+        return Math.sqrt(dx * dx + dy * dy);
     }
 }
 // === STATE
 const SCREENW = document.body.clientWidth;
 const SCREENH = document.body.clientHeight;
-const WORLD_SCALE = 50;
+const WORLD_SCALE = 1;
 const WORLDW = SCREENW * WORLD_SCALE;
 const WORLDH = SCREENH * WORLD_SCALE;
 const FORCE_RADIUS = 10 * WORLD_SCALE;
@@ -137,15 +145,15 @@ let controlPressed = false;
 let altPressed = false;
 let clickDown = null;
 let friction = false;
-let circleRendererGlob = null;
+let particleRendererGlob = null;
 // === HELPERS
-function addCircle(x, y, size, color) {
-    return circleRendererGlob.addCircle(x / WORLD_SCALE, y / WORLD_SCALE, size / WORLD_SCALE, color);
+function addParticle(x, y, size, color) {
+    return particleRendererGlob.addParticle(x / WORLD_SCALE, y / WORLD_SCALE, size / WORLD_SCALE, color);
 }
 function putParticle(bag, x, y) {
     const size = uniformI(2, 6) * WORLD_SCALE;
     const color = randomHsla();
-    const shapeID = addCircle(x, y, size, color);
+    const shapeID = addParticle(x, y, size, color);
     bag.push(new Particle(new Vec2(x, y), Vec2.zero(), false, shapeID));
 }
 function produceParticlesAtPos(bag, pos, n) {
@@ -153,10 +161,10 @@ function produceParticlesAtPos(bag, pos, n) {
         const spd = randomDirectionVec2().smul_(uniformF(5, 10));
         const size = uniformI(2, 6) * WORLD_SCALE;
         const color = randomHsla();
-        const shapeID = addCircle(pos.x, pos.y, size, color);
+        const shapeID = addParticle(pos.x, pos.y, size, color);
         bag.push(new Particle(pos, spd, false, shapeID));
     }
-    circleRendererGlob.flushCircles();
+    particleRendererGlob.flushColors();
 }
 function updateMouseSpeed(pos) {
     mousePositions.push(pos);
@@ -165,51 +173,24 @@ function updateMouseSpeed(pos) {
     }
     const n = mousePositions.length;
     let spd = Vec2.zero();
-    for (var i = 1; i < n; ++i) {
+    for (let i = 1; i < n; ++i) {
         spd.add_(mousePositions[i]);
         spd.sub_(mousePositions[i - 1]);
     }
     spd.sdiv_(n);
     mouseSpeed = spd;
 }
-function cleanOutOfBounds(bag) {
-    var nP = bag.length;
-    var ds = 0;
-    for (var iP = 0; iP < nP; ++iP) {
-        var p = bag[iP];
-        if (p.deleted) {
-            ds += 1;
-            continue;
-        }
-        if (!checkBounds(p)) {
-            p.deleted = true;
-        }
-    }
-    if (ds > 5000) {
-        return bag.filter(p => !p.deleted);
-    }
-    return null;
-}
-function checkBounds(subject) {
-    return subject.posX >= 0 &&
-        subject.posY >= 0 &&
-        subject.posX <= WORLDW &&
-        subject.posY <= WORLDH;
-}
 // === EVENTS
-window.addEventListener('touchend', function (ev) {
-    shouldProduce = false;
-});
 window.addEventListener('mousemove', function (ev) {
     const pos = Vec2.fromXY(ev.clientX, ev.clientY).smul(WORLD_SCALE);
     if (clickDown === 1 && particles.length > 0) {
         const lastParticle = particles[particles.length - 1];
         if (pos.distanceTo(lastParticle.getPos()) > 25 * WORLD_SCALE) {
             const size = uniformI(2, 6) * WORLD_SCALE;
-            const color = circleRendererGlob.getCircleColor(lastParticle.shapeID);
-            const shapeID = addCircle(pos.x, pos.y, size, color);
+            const color = particleRendererGlob.getParticleColor(lastParticle.shapeID);
+            const shapeID = addParticle(pos.x, pos.y, size, color);
             particles.push(new Particle(pos, Vec2.zero(), true, shapeID));
-            circleRendererGlob.flushCircles();
+            particleRendererGlob.flushColors();
         }
     }
     else if (clickDown === 2 && forces.length > 0) {
@@ -217,11 +198,11 @@ window.addEventListener('mousemove', function (ev) {
         }
         else {
             const lastForce = forces[forces.length - 1];
-            if (pos.distanceTo(lastForce.pos) > 25 * WORLD_SCALE) {
-                const color = circleRendererGlob.getCircleColor(lastForce.shapeID);
-                const shapeID = addCircle(pos.x, pos.y, FORCE_RADIUS, color);
+            if (lastForce.distanceToVec2(pos) > 25 * WORLD_SCALE) {
+                const color = particleRendererGlob.getParticleColor(lastForce.shapeID);
+                const shapeID = addParticle(pos.x, pos.y, FORCE_RADIUS, color);
                 forces.push(new Force(pos, lastForce.value, shapeID));
-                circleRendererGlob.flushCircles();
+                particleRendererGlob.flushColors();
             }
         }
     }
@@ -239,20 +220,20 @@ window.addEventListener('mousedown', function (ev) {
     else if (ev.button === 1) {
         const size = uniformI(2, 6) * WORLD_SCALE;
         const color = randomHsla();
-        const shapeID = addCircle(pos.x, pos.y, size, color);
+        const shapeID = addParticle(pos.x, pos.y, size, color);
         particles.push(new Particle(pos, Vec2.zero(), true, shapeID));
-        circleRendererGlob.flushCircles();
+        particleRendererGlob.flushColors();
     }
     else if (ev.button === 2) {
-        let forceValue = 1000 * WORLD_SCALE;
+        let forceValue = 10;
         let color = [1, 1, 1, 1];
         if (shiftPressed) {
             forceValue *= -1;
             color = [0, 0, 1, 1];
         }
-        const shapeID = addCircle(pos.x, pos.y, FORCE_RADIUS, color);
+        const shapeID = addParticle(pos.x, pos.y, FORCE_RADIUS, color);
         forces.push(new Force(pos, forceValue, shapeID));
-        circleRendererGlob.flushCircles();
+        particleRendererGlob.flushColors();
     }
     clickDown = ev.button;
 });
@@ -260,7 +241,6 @@ window.addEventListener('mouseup', function (ev) {
     if (ev.button === 0) {
         shouldProduce = false;
     }
-    particles.filter(p => p.trace).forEach(p => p.active = true);
     clickDown = null;
 });
 window.addEventListener('keydown', function (ev) {
@@ -280,7 +260,7 @@ window.addEventListener('keydown', function (ev) {
         friction = !friction;
     }
     else if (ev.keyCode === 68) {
-        forces = forces.filter(f => f.pos.distanceTo(mousePosition) > FORCE_RADIUS);
+        forces = forces.filter(f => f.distanceToVec2(mousePosition) > FORCE_RADIUS);
     }
     else if (ev.keyCode === 72) {
     }
@@ -307,17 +287,10 @@ setInterval(function () {
         produceParticlesAtPos(particles, mousePosition, uniformI(10, 20));
     }
 }, 16);
-// clean up out-of-bounds particles
-setInterval(function () {
-    var newParticles = cleanOutOfBounds(particles);
-    if (newParticles) {
-        particles = newParticles;
-    }
-}, 5000);
 // === PHYSICS
 function computeForceAcceleration(force, posX, posY, velX, velY, outDV) {
-    let fx = force.pos.x;
-    let fy = force.pos.y;
+    let fx = force.posX;
+    let fy = force.posY;
     let sx = posX;
     let sy = posY;
     let dx = fx - sx;
@@ -352,8 +325,8 @@ function evaluate(particle, t, dt, dx, dv, outDX, outDV) {
     let posY = particle.posY + dx.y * dt;
     let velX = particle.velX + dv.x * dt;
     let velY = particle.velY + dv.y * dt;
-    outDX.x = particle.velX;
-    outDX.y = particle.velY;
+    outDX.x = velX;
+    outDX.y = velY;
     computeAcceleration(posX, posY, velX, velY, outDV);
 }
 function integrate(particle, t, dt) {
@@ -386,13 +359,10 @@ function simulate(t, dt) {
     }
 }
 function updateParticlePositions() {
-    var nP = particles.length;
-    for (var iP = 0; iP < nP; ++iP) {
-        var particle = particles[iP];
-        if (particle.deleted) {
-            continue;
-        }
-        circleRendererGlob.updateCircle(particle.shapeID, particle.posX / WORLD_SCALE, particle.posY / WORLD_SCALE);
+    const nP = particles.length;
+    for (let iP = 0; iP < nP; ++iP) {
+        const particle = particles[iP];
+        particleRendererGlob.updateParticlePos(particle.shapeID, particle.posX / WORLD_SCALE, particle.posY / WORLD_SCALE);
     }
 }
 function physicsLoop(t, dt) {
@@ -410,20 +380,34 @@ function main() {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE);
         gl.disable(gl.DEPTH_TEST);
-        const circleRenderer = new CircleRenderer(gl);
-        yield circleRenderer.initialize();
-        circleRendererGlob = circleRenderer;
-        if (location.hash.length > 0) {
-            const args = location.hash.slice(1).split('&').map(s => s.split('=')).reduce((o, p) => (o[p[0]] = p[1], o), {});
-            if (args['fill']) {
-                const n = parseInt(args['fill']);
-                for (let i = 0; i < n; ++i) {
-                    let x = WORLDW * Math.random();
-                    let y = WORLDH * Math.random();
-                    putParticle(particles, x, y);
-                }
-                circleRenderer.flushCircles();
+        const args = location.hash.slice(1)
+            .split('&')
+            .filter(s => s)
+            .map(s => s.split('='))
+            .reduce((o, [k, v]) => (o[k] = v, o), {});
+        const renderer = args['renderer'] || 'circle';
+        let particleRenderer;
+        switch (renderer) {
+            case 'circle':
+                particleRenderer = new CircleRenderer(gl);
+                break;
+            case 'point':
+                particleRenderer = new PointRenderer(gl);
+                break;
+            default:
+                alert('no such renderer!');
+                throw new Error();
+        }
+        yield particleRenderer.initialize();
+        particleRendererGlob = particleRenderer;
+        if (args['fill']) {
+            const n = parseInt(args['fill']);
+            for (let i = 0; i < n; ++i) {
+                let x = SCREENW * Math.random() * WORLD_SCALE;
+                let y = SCREENH * Math.random() * WORLD_SCALE;
+                putParticle(particles, x, y);
             }
+            particleRenderer.flushColors();
         }
         let lastT = performance.now();
         function loop(t) {
@@ -432,7 +416,7 @@ function main() {
             physicsLoop(t, dt);
             gl.clearColor(0, 0, 0, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            circleRenderer.draw();
+            particleRenderer.render();
             lastT = t;
         }
         loop(lastT);
@@ -450,6 +434,9 @@ function main() {
         });
         canvas.addEventListener('contextmenu', function (ev) {
             ev.preventDefault();
+        });
+        window.addEventListener('touchend', function (ev) {
+            shouldProduce = false;
         });
     });
 }

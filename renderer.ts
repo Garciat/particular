@@ -58,7 +58,23 @@ class WebGLHelpers {
     }
 }
 
-class CircleRenderer {
+interface ParticleRenderer {
+    initialize();
+
+    addParticle(x: number, y: number, r: number, color: number[]);
+
+    getParticleColor(id: number);
+
+    flushColors();
+
+    updateParticlePos(id: number, x: number, y: number);
+
+    removeParticle(id);
+
+    render();
+}
+
+class CircleRenderer implements ParticleRenderer {
     static CIRCLE_EDGE_COUNT = 10;
     static MAX_CIRCLE_COUNT = 100000;
 
@@ -124,7 +140,7 @@ class CircleRenderer {
         gl.bindAttribLocation(program, this.glA_info, 'a_info');
     }
 
-    addCircle(x: number, y: number, r: number, color: number[]) {
+    addParticle(x: number, y: number, r: number, color: number[]) {
         const id = this.circleCount;
 
         this.circleInfo[id * 3 + 0] = x;
@@ -141,7 +157,7 @@ class CircleRenderer {
         return id;
     }
 
-    getCircleColor(id: number) {
+    getParticleColor(id: number) {
         let r = this.circleColors[id * 4 + 0];
         let g = this.circleColors[id * 4 + 1];
         let b = this.circleColors[id * 4 + 2];
@@ -149,22 +165,22 @@ class CircleRenderer {
         return [r, g, b, a];
     }
 
-    flushCircles() {
+    flushColors() {
         const gl = this.gl;
         gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferColors);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleColors.subarray(0, 4 * this.circleCount));
     }
 
-    updateCircle(id: number, x: number, y: number) {
+    updateParticlePos(id: number, x: number, y: number) {
         this.circleInfo[id * 3 + 0] = x;
         this.circleInfo[id * 3 + 1] = y;
     }
 
-    removeCircle(id) {
+    removeParticle(id) {
         // TODO
     }
 
-    draw() {
+    render() {
         const gl = this.gl;
         const gl_ia = this.gl_ia;
 
@@ -188,6 +204,110 @@ class CircleRenderer {
         gl_ia.vertexAttribDivisorANGLE(this.glA_info, 1);
 
         gl_ia.drawArraysInstancedANGLE(gl.TRIANGLE_FAN, 0, CircleRenderer.CIRCLE_EDGE_COUNT + 2, this.circleCount);
+    }
+}
+
+class PointRenderer implements ParticleRenderer {
+    static CIRCLE_EDGE_COUNT = 10;
+    static MAX_CIRCLE_COUNT = 1000000;
+
+    gl: WebGLRenderingContext;
+
+    circleColors: Float32Array;
+    circleInfo: Float32Array;
+    circleCount: number;
+
+    glProgram: WebGLProgram;
+    glBufferColors: WebGLBuffer;
+    glBufferInfo: WebGLBuffer;
+
+    glU_resolution: WebGLUniformLocation;
+    glA_color: number;
+    glA_info: number;
+
+    constructor(gl: WebGLRenderingContext) {
+        this.gl = gl;
+
+        this.circleColors = new Float32Array(4 * PointRenderer.MAX_CIRCLE_COUNT);
+        this.circleInfo = new Float32Array(2 * PointRenderer.MAX_CIRCLE_COUNT);
+        this.circleCount = 0;
+    }
+
+    async initialize() {
+        const gl = this.gl;
+
+        let vertexShader = WebGLHelpers.compileVertexShader(gl, await downloadText('shaders/point.vert'));
+        let fragmentShader = WebGLHelpers.compileFragmentShader(gl, await downloadText('shaders/point.frag'));
+        let program = WebGLHelpers.makeProgram(gl, [vertexShader, fragmentShader]);
+
+        this.glProgram = program;
+        this.glBufferColors = WebGLHelpers.createSizedArray(gl, this.circleColors.byteLength, gl.STATIC_DRAW);
+        this.glBufferInfo = WebGLHelpers.createSizedArray(gl, this.circleInfo.byteLength, gl.DYNAMIC_DRAW);
+
+        this.glU_resolution = gl.getUniformLocation(program, 'u_resolution');
+        
+        this.glA_color = 0;
+        this.glA_info = 1;
+        gl.bindAttribLocation(program, this.glA_color, 'a_color');
+        gl.bindAttribLocation(program, this.glA_info, 'a_info');
+    }
+
+    addParticle(x: number, y: number, r: number, color: number[]) {
+        const id = this.circleCount;
+
+        this.circleInfo[id * 2 + 0] = x;
+        this.circleInfo[id * 2 + 1] = y;
+
+        this.circleColors[id * 4 + 0] = color[0];
+        this.circleColors[id * 4 + 1] = color[1];
+        this.circleColors[id * 4 + 2] = color[2];
+        this.circleColors[id * 4 + 3] = color[3];
+
+        this.circleCount += 1;
+
+        return id;
+    }
+
+    getParticleColor(id: number) {
+        let r = this.circleColors[id * 4 + 0];
+        let g = this.circleColors[id * 4 + 1];
+        let b = this.circleColors[id * 4 + 2];
+        let a = this.circleColors[id * 4 + 3];
+        return [r, g, b, a];
+    }
+
+    flushColors() {
+        const gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferColors);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleColors.subarray(0, 4 * this.circleCount));
+    }
+
+    updateParticlePos(id: number, x: number, y: number) {
+        this.circleInfo[id * 2 + 0] = x;
+        this.circleInfo[id * 2 + 1] = y;
+    }
+
+    removeParticle(id) {
+        // TODO
+    }
+
+    render() {
+        const gl = this.gl;
+
+        gl.useProgram(this.glProgram);
+
+        gl.uniform2f(this.glU_resolution, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferColors);
+        gl.enableVertexAttribArray(this.glA_color);
+        gl.vertexAttribPointer(this.glA_color, 4, gl.FLOAT, false, 16, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleInfo.subarray(0, 3 * this.circleCount));
+        gl.enableVertexAttribArray(this.glA_info);
+        gl.vertexAttribPointer(this.glA_info, 2, gl.FLOAT, false, 8, 0);
+
+        gl.drawArrays(gl.POINTS, 0, this.circleCount);
     }
 }
 
