@@ -347,7 +347,11 @@ function main() {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE);
         gl.disable(gl.DEPTH_TEST);
-        const args = location.hash.slice(1).split('&').filter(s => s).map(s => s.split('=')).reduce((o, p) => (o[p[0]] = p[1], o), {});
+        const args = location.hash.slice(1)
+            .split('&')
+            .filter(s => s)
+            .map(s => s.split('='))
+            .reduce((o, p) => (o[p[0]] = p[1], o), {});
         const renderer = args['renderer'] || 'circle';
         let particleRenderer;
         switch (renderer) {

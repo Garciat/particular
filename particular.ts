@@ -435,7 +435,12 @@ async function main() {
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.disable(gl.DEPTH_TEST);
 
-    const args = location.hash.slice(1).split('&').filter(s => s).map(s => s.split('=')).reduce((o, p) => (o[p[0]] = p[1], o), {});
+    const args =
+        location.hash.slice(1)
+        .split('&')
+        .filter(s => s)
+        .map(s => s.split('='))
+        .reduce((o, p) => (o[p[0]] = p[1], o), {});
 
     const renderer = args['renderer'] || 'circle';
 
@@ -451,7 +456,7 @@ async function main() {
             alert('no such renderer!');
             throw new Error();
     }
-    
+
     await particleRenderer.initialize();
 
     particleRendererGlob = particleRenderer;
