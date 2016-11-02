@@ -351,7 +351,7 @@ function main() {
             .split('&')
             .filter(s => s)
             .map(s => s.split('='))
-            .reduce((o, p) => (o[p[0]] = p[1], o), {});
+            .reduce((o, [k, v]) => (o[k] = v, o), {});
         const renderer = args['renderer'] || 'circle';
         let particleRenderer;
         switch (renderer) {
