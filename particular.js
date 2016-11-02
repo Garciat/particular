@@ -102,10 +102,14 @@ class Particle {
         this.deleted = false;
         this.active = false;
         this.trace = Boolean(trace);
-        this.pos = pos.clone();
-        this.spd = spd.clone();
-        this.path = [];
+        this.posX = pos.x;
+        this.posY = pos.y;
+        this.velX = spd.x;
+        this.velY = spd.y;
         this.shapeID = shapeID;
+    }
+    getPos() {
+        return new Vec2(this.posX, this.posY);
     }
 }
 class Force {
@@ -118,7 +122,10 @@ class Force {
 // === STATE
 const SCREENW = document.body.clientWidth;
 const SCREENH = document.body.clientHeight;
-const FORCE_RADIUS = 10;
+const WORLD_SCALE = 50;
+const WORLDW = SCREENW * WORLD_SCALE;
+const WORLDH = SCREENH * WORLD_SCALE;
+const FORCE_RADIUS = 10 * WORLD_SCALE;
 let particles = [];
 let forces = [];
 let mousePositions = [];
@@ -132,18 +139,21 @@ let clickDown = null;
 let friction = false;
 let circleRendererGlob = null;
 // === HELPERS
+function addCircle(x, y, size, color) {
+    return circleRendererGlob.addCircle(x / WORLD_SCALE, y / WORLD_SCALE, size / WORLD_SCALE, color);
+}
 function putParticle(bag, x, y) {
-    const size = uniformI(2, 6);
+    const size = uniformI(2, 6) * WORLD_SCALE;
     const color = randomHsla();
-    const shapeID = circleRendererGlob.addCircle(x, y, size, color);
+    const shapeID = addCircle(x, y, size, color);
     bag.push(new Particle(new Vec2(x, y), Vec2.zero(), false, shapeID));
 }
 function produceParticlesAtPos(bag, pos, n) {
     for (let i = 0; i < n; ++i) {
-        const spd = randomDirectionVec2().smul_(5 * Math.random() + 5);
-        const size = uniformI(2, 6);
+        const spd = randomDirectionVec2().smul_(uniformF(5, 10));
+        const size = uniformI(2, 6) * WORLD_SCALE;
         const color = randomHsla();
-        const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, size, color);
+        const shapeID = addCircle(pos.x, pos.y, size, color);
         bag.push(new Particle(pos, spd, false, shapeID));
     }
     circleRendererGlob.flushCircles();
@@ -181,23 +191,23 @@ function cleanOutOfBounds(bag) {
     return null;
 }
 function checkBounds(subject) {
-    return subject.pos.x >= 0 &&
-        subject.pos.y >= 0 &&
-        subject.pos.x <= SCREENW &&
-        subject.pos.y <= SCREENH;
+    return subject.posX >= 0 &&
+        subject.posY >= 0 &&
+        subject.posX <= WORLDW &&
+        subject.posY <= WORLDH;
 }
 // === EVENTS
 window.addEventListener('touchend', function (ev) {
     shouldProduce = false;
 });
 window.addEventListener('mousemove', function (ev) {
-    const pos = Vec2.fromXY(ev.clientX, ev.clientY);
+    const pos = Vec2.fromXY(ev.clientX, ev.clientY).smul(WORLD_SCALE);
     if (clickDown === 1 && particles.length > 0) {
         const lastParticle = particles[particles.length - 1];
-        if (pos.distanceTo(lastParticle.pos) > 25) {
-            const size = uniformI(2, 6);
+        if (pos.distanceTo(lastParticle.getPos()) > 25 * WORLD_SCALE) {
+            const size = uniformI(2, 6) * WORLD_SCALE;
             const color = circleRendererGlob.getCircleColor(lastParticle.shapeID);
-            const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, size, color);
+            const shapeID = addCircle(pos.x, pos.y, size, color);
             particles.push(new Particle(pos, Vec2.zero(), true, shapeID));
             circleRendererGlob.flushCircles();
         }
@@ -207,9 +217,9 @@ window.addEventListener('mousemove', function (ev) {
         }
         else {
             const lastForce = forces[forces.length - 1];
-            if (pos.distanceTo(lastForce.pos) > 25) {
+            if (pos.distanceTo(lastForce.pos) > 25 * WORLD_SCALE) {
                 const color = circleRendererGlob.getCircleColor(lastForce.shapeID);
-                const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, FORCE_RADIUS, color);
+                const shapeID = addCircle(pos.x, pos.y, FORCE_RADIUS, color);
                 forces.push(new Force(pos, lastForce.value, shapeID));
                 circleRendererGlob.flushCircles();
             }
@@ -218,7 +228,7 @@ window.addEventListener('mousemove', function (ev) {
     mousePosition = pos;
 });
 window.addEventListener('mousedown', function (ev) {
-    const pos = Vec2.fromXY(ev.clientX, ev.clientY);
+    const pos = Vec2.fromXY(ev.clientX, ev.clientY).smul(WORLD_SCALE);
     if (ev.button === 0) {
         if (shiftPressed) {
         }
@@ -227,20 +237,20 @@ window.addEventListener('mousedown', function (ev) {
         }
     }
     else if (ev.button === 1) {
-        const size = uniformI(2, 6);
+        const size = uniformI(2, 6) * WORLD_SCALE;
         const color = randomHsla();
-        const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, size, color);
+        const shapeID = addCircle(pos.x, pos.y, size, color);
         particles.push(new Particle(pos, Vec2.zero(), true, shapeID));
         circleRendererGlob.flushCircles();
     }
     else if (ev.button === 2) {
-        let forceValue = 10;
+        let forceValue = 1000 * WORLD_SCALE;
         let color = [1, 1, 1, 1];
         if (shiftPressed) {
             forceValue *= -1;
             color = [0, 0, 1, 1];
         }
-        const shapeID = circleRendererGlob.addCircle(pos.x, pos.y, FORCE_RADIUS, color);
+        const shapeID = addCircle(pos.x, pos.y, FORCE_RADIUS, color);
         forces.push(new Force(pos, forceValue, shapeID));
         circleRendererGlob.flushCircles();
     }
@@ -304,62 +314,75 @@ setInterval(function () {
         particles = newParticles;
     }
 }, 5000);
-// === DRAWING
-function applySpeed(subject) {
-    subject.pos.x += subject.spd.x;
-    subject.pos.y += subject.spd.y;
-}
-function applyGravity(sink, subject) {
-    let fx = sink.pos.x;
-    let fy = sink.pos.y;
-    let sx = subject.pos.x;
-    let sy = subject.pos.y;
+// === PHYSICS
+function computeForceAcceleration(force, posX, posY, velX, velY, outDV) {
+    let fx = force.pos.x;
+    let fy = force.pos.y;
+    let sx = posX;
+    let sy = posY;
     let dx = fx - sx;
     let dy = fy - sy;
-    let dd = dx * dx + dy * dy;
-    if (dd <= FORCE_RADIUS * FORCE_RADIUS) {
+    let dd = Math.sqrt(dx * dx + dy * dy);
+    if (dd <= FORCE_RADIUS) {
         return;
     }
-    let k = sink.value / dd;
+    let k = force.value / (dd * dd * dd);
+    // let dd = dx * dx + dy * dy;
+    // if (dd <= FORCE_RADIUS * FORCE_RADIUS) {
+    //     return;
+    // }
+    // let k = force.value / dd;
     let vx = dx * k;
     let vy = dy * k;
-    subject.spd.x += vx;
-    subject.spd.y += vy;
+    outDV.x += vx;
+    outDV.y += vy;
 }
-function applyFriction(subject) {
-    subject.spd.x -= 0.05 * subject.spd.x;
-    subject.spd.y -= 0.05 * subject.spd.y;
+function computeFrictionAcceleration(posX, posY, velX, velY, outDV) {
+    outDV.x -= velX * 0.01;
+    outDV.y -= velY * 0.01;
 }
-function drawVector(ctx, pos, vec, scale, color) {
-    const vecS = pos.add(vec.smul(scale));
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
-    ctx.lineTo(vecS.x, vecS.y);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-}
-function simulate() {
-    var nP = particles.length;
+function computeAcceleration(posX, posY, velX, velY, outDV) {
     var nF = forces.length;
+    for (var iF = 0; iF < nF; ++iF) {
+        computeForceAcceleration(forces[iF], posX, posY, velX, velY, outDV);
+    }
+}
+function evaluate(particle, t, dt, dx, dv, outDX, outDV) {
+    let posX = particle.posX + dx.x * dt;
+    let posY = particle.posY + dx.y * dt;
+    let velX = particle.velX + dv.x * dt;
+    let velY = particle.velY + dv.y * dt;
+    outDX.x = particle.velX;
+    outDX.y = particle.velY;
+    computeAcceleration(posX, posY, velX, velY, outDV);
+}
+function integrate(particle, t, dt) {
+    let dxA = new Vec2(0, 0);
+    let dvA = new Vec2(0, 0);
+    let dxB = new Vec2(0, 0);
+    let dvB = new Vec2(0, 0);
+    let dxC = new Vec2(0, 0);
+    let dvC = new Vec2(0, 0);
+    let dxD = new Vec2(0, 0);
+    let dvD = new Vec2(0, 0);
+    evaluate(particle, t, 0, new Vec2(0, 0), new Vec2(0, 0), dxA, dvA);
+    evaluate(particle, t, dt * 0.5, dxA, dvA, dxB, dvB);
+    evaluate(particle, t, dt * 0.5, dxB, dvB, dxC, dvC);
+    evaluate(particle, t, dt, dxC, dvC, dxD, dvD);
+    let dxdtX = 1.0 / 6.0 * (dxA.x + 2.0 * (dxB.x + dxC.x) + dxD.x);
+    let dxdtY = 1.0 / 6.0 * (dxA.y + 2.0 * (dxB.y + dxC.y) + dxD.y);
+    let dvdtX = 1.0 / 6.0 * (dvA.x + 2.0 * (dvB.x + dvC.x) + dvD.x);
+    let dvdtY = 1.0 / 6.0 * (dvA.y + 2.0 * (dvB.y + dvC.y) + dvD.y);
+    particle.posX += dxdtX * dt;
+    particle.posY += dxdtY * dt;
+    particle.velX += dvdtX * dt;
+    particle.velY += dvdtY * dt;
+}
+function simulate(t, dt) {
+    var nP = particles.length;
     for (var iP = 0; iP < nP; ++iP) {
         var particle = particles[iP];
-        if (particle.deleted) {
-            continue;
-        }
-        if (particle.trace && !particle.active) {
-            continue;
-        }
-        applySpeed(particle);
-        for (var iF = 0; iF < nF; ++iF) {
-            applyGravity(forces[iF], particle);
-        }
-        if (friction) {
-            applyFriction(particle);
-        }
-        if (particle.trace) {
-            particle.path.push(particle.pos.clone());
-        }
+        integrate(particle, t, dt);
     }
 }
 function updateParticlePositions() {
@@ -369,11 +392,11 @@ function updateParticlePositions() {
         if (particle.deleted) {
             continue;
         }
-        circleRendererGlob.updateCircle(particle.shapeID, particle.pos.x, particle.pos.y);
+        circleRendererGlob.updateCircle(particle.shapeID, particle.posX / WORLD_SCALE, particle.posY / WORLD_SCALE);
     }
 }
-function physicsLoop() {
-    simulate();
+function physicsLoop(t, dt) {
+    simulate(t, dt);
     updateParticlePositions();
 }
 function main() {
@@ -395,21 +418,24 @@ function main() {
             if (args['fill']) {
                 const n = parseInt(args['fill']);
                 for (let i = 0; i < n; ++i) {
-                    let x = SCREENW * Math.random();
-                    let y = SCREENH * Math.random();
+                    let x = WORLDW * Math.random();
+                    let y = WORLDH * Math.random();
                     putParticle(particles, x, y);
                 }
                 circleRenderer.flushCircles();
             }
         }
-        function loop() {
+        let lastT = performance.now();
+        function loop(t) {
             requestAnimationFrame(loop);
-            physicsLoop();
+            let dt = t - lastT;
+            physicsLoop(t, dt);
             gl.clearColor(0, 0, 0, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             circleRenderer.draw();
+            lastT = t;
         }
-        loop();
+        loop(lastT);
         canvas.addEventListener('touchstart', function (ev) {
             ev.preventDefault();
             const touch = ev.touches[0];
