@@ -56,7 +56,6 @@ class CircleRenderer {
         this.gl_ia = gl.getExtension('ANGLE_instanced_arrays');
         this.circleGeometry = new Float32Array(2 * (CircleRenderer.CIRCLE_EDGE_COUNT + 2));
         this.circleColors = new Float32Array(4 * CircleRenderer.MAX_CIRCLE_COUNT);
-        this.circleInfo = new Float32Array(3 * CircleRenderer.MAX_CIRCLE_COUNT);
         this.circleCount = 0;
     }
     initialize() {
@@ -68,7 +67,7 @@ class CircleRenderer {
             this.glProgram = program;
             this.glBufferGeometry = WebGLHelpers.createSizedArray(gl, this.circleGeometry.byteLength, gl.STATIC_DRAW);
             this.glBufferColors = WebGLHelpers.createSizedArray(gl, this.circleColors.byteLength, gl.STATIC_DRAW);
-            this.glBufferInfo = WebGLHelpers.createSizedArray(gl, this.circleInfo.byteLength, gl.DYNAMIC_DRAW);
+            this.glBufferInfo = WebGLHelpers.createSizedArray(gl, 4 * PointRenderer.MAX_CIRCLE_COUNT * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW);
             let iV = 0;
             const K = 2 * Math.PI / CircleRenderer.CIRCLE_EDGE_COUNT;
             this.circleGeometry[iV++] = 0;
@@ -90,9 +89,6 @@ class CircleRenderer {
     }
     addCircle(x, y, r, color) {
         const id = this.circleCount;
-        this.circleInfo[id * 3 + 0] = x;
-        this.circleInfo[id * 3 + 1] = y;
-        this.circleInfo[id * 3 + 2] = r;
         this.circleColors[id * 4 + 0] = color[0];
         this.circleColors[id * 4 + 1] = color[1];
         this.circleColors[id * 4 + 2] = color[2];
@@ -112,9 +108,10 @@ class CircleRenderer {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferColors);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleColors.subarray(0, 4 * this.circleCount));
     }
-    updateCircle(id, x, y) {
-        this.circleInfo[id * 3 + 0] = x;
-        this.circleInfo[id * 3 + 1] = y;
+    updateCircles(data) {
+        const gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, 4 * this.circleCount));
     }
     removeCircle(id) {
         // TODO
@@ -132,9 +129,8 @@ class CircleRenderer {
         gl.vertexAttribPointer(this.glA_color, 4, gl.FLOAT, false, 16, 0);
         gl_ia.vertexAttribDivisorANGLE(this.glA_color, 1);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleInfo.subarray(0, 3 * this.circleCount));
         gl.enableVertexAttribArray(this.glA_info);
-        gl.vertexAttribPointer(this.glA_info, 3, gl.FLOAT, false, 12, 0);
+        gl.vertexAttribPointer(this.glA_info, 4, gl.FLOAT, false, 16, 0);
         gl_ia.vertexAttribDivisorANGLE(this.glA_info, 1);
         gl_ia.drawArraysInstancedANGLE(gl.TRIANGLE_FAN, 0, CircleRenderer.CIRCLE_EDGE_COUNT + 2, this.circleCount);
     }
@@ -145,7 +141,6 @@ class PointRenderer {
     constructor(gl) {
         this.gl = gl;
         this.circleColors = new Float32Array(4 * PointRenderer.MAX_CIRCLE_COUNT);
-        this.circleInfo = new Float32Array(2 * PointRenderer.MAX_CIRCLE_COUNT);
         this.circleCount = 0;
     }
     initialize() {
@@ -156,7 +151,7 @@ class PointRenderer {
             let program = WebGLHelpers.makeProgram(gl, [vertexShader, fragmentShader]);
             this.glProgram = program;
             this.glBufferColors = WebGLHelpers.createSizedArray(gl, this.circleColors.byteLength, gl.STATIC_DRAW);
-            this.glBufferInfo = WebGLHelpers.createSizedArray(gl, this.circleInfo.byteLength, gl.DYNAMIC_DRAW);
+            this.glBufferInfo = WebGLHelpers.createSizedArray(gl, 4 * PointRenderer.MAX_CIRCLE_COUNT * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW);
             this.glU_resolution = gl.getUniformLocation(program, 'u_resolution');
             this.glA_color = 0;
             this.glA_info = 1;
@@ -166,8 +161,6 @@ class PointRenderer {
     }
     addCircle(x, y, r, color) {
         const id = this.circleCount;
-        this.circleInfo[id * 2 + 0] = x;
-        this.circleInfo[id * 2 + 1] = y;
         this.circleColors[id * 4 + 0] = color[0];
         this.circleColors[id * 4 + 1] = color[1];
         this.circleColors[id * 4 + 2] = color[2];
@@ -187,9 +180,10 @@ class PointRenderer {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferColors);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleColors.subarray(0, 4 * this.circleCount));
     }
-    updateCircle(id, x, y) {
-        this.circleInfo[id * 2 + 0] = x;
-        this.circleInfo[id * 2 + 1] = y;
+    updateCircles(data) {
+        const gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, 4 * this.circleCount));
     }
     removeCircle(id) {
         // TODO
@@ -202,9 +196,8 @@ class PointRenderer {
         gl.enableVertexAttribArray(this.glA_color);
         gl.vertexAttribPointer(this.glA_color, 4, gl.FLOAT, false, 16, 0);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleInfo.subarray(0, 3 * this.circleCount));
         gl.enableVertexAttribArray(this.glA_info);
-        gl.vertexAttribPointer(this.glA_info, 2, gl.FLOAT, false, 8, 0);
+        gl.vertexAttribPointer(this.glA_info, 4, gl.FLOAT, false, 16, 0);
         gl.drawArrays(gl.POINTS, 0, this.circleCount);
     }
 }

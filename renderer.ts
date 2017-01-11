@@ -1,6 +1,5 @@
 function downloadText(url: string) {
     let xhr = new XMLHttpRequest();
-
     xhr.responseType = 'text';
     
     return new Promise<string>((resolve, reject) => {
@@ -59,7 +58,7 @@ class WebGLHelpers {
 }
 
 interface ParticleRenderer {
-    initialize();
+    initialize(): Promise<void>;
 
     addCircle(x: number, y: number, r: number, color: number[]);
 
@@ -67,7 +66,7 @@ interface ParticleRenderer {
 
     flushCircles();
 
-    updateCircle(id: number, x: number, y: number);
+    updateCircles(data: Float32Array);
 
     removeCircle(id);
 
@@ -83,7 +82,6 @@ class CircleRenderer implements ParticleRenderer {
 
     circleGeometry: Float32Array;
     circleColors: Float32Array;
-    circleInfo: Float32Array;
     circleCount: number;
 
     glProgram: WebGLProgram;
@@ -102,7 +100,6 @@ class CircleRenderer implements ParticleRenderer {
 
         this.circleGeometry = new Float32Array(2 * (CircleRenderer.CIRCLE_EDGE_COUNT + 2));
         this.circleColors = new Float32Array(4 * CircleRenderer.MAX_CIRCLE_COUNT);
-        this.circleInfo = new Float32Array(3 * CircleRenderer.MAX_CIRCLE_COUNT);
         this.circleCount = 0;
     }
 
@@ -116,7 +113,7 @@ class CircleRenderer implements ParticleRenderer {
         this.glProgram = program;
         this.glBufferGeometry = WebGLHelpers.createSizedArray(gl, this.circleGeometry.byteLength, gl.STATIC_DRAW);
         this.glBufferColors = WebGLHelpers.createSizedArray(gl, this.circleColors.byteLength, gl.STATIC_DRAW);
-        this.glBufferInfo = WebGLHelpers.createSizedArray(gl, this.circleInfo.byteLength, gl.DYNAMIC_DRAW);
+        this.glBufferInfo = WebGLHelpers.createSizedArray(gl, 4 * PointRenderer.MAX_CIRCLE_COUNT * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW);
 
         let iV = 0;
         const K = 2 * Math.PI / CircleRenderer.CIRCLE_EDGE_COUNT;
@@ -143,10 +140,6 @@ class CircleRenderer implements ParticleRenderer {
     addCircle(x: number, y: number, r: number, color: number[]) {
         const id = this.circleCount;
 
-        this.circleInfo[id * 3 + 0] = x;
-        this.circleInfo[id * 3 + 1] = y;
-        this.circleInfo[id * 3 + 2] = r;
-
         this.circleColors[id * 4 + 0] = color[0];
         this.circleColors[id * 4 + 1] = color[1];
         this.circleColors[id * 4 + 2] = color[2];
@@ -171,9 +164,10 @@ class CircleRenderer implements ParticleRenderer {
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleColors.subarray(0, 4 * this.circleCount));
     }
 
-    updateCircle(id: number, x: number, y: number) {
-        this.circleInfo[id * 3 + 0] = x;
-        this.circleInfo[id * 3 + 1] = y;
+    updateCircles(data: Float32Array) {
+        const gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, 4 * this.circleCount));
     }
 
     removeCircle(id) {
@@ -198,9 +192,8 @@ class CircleRenderer implements ParticleRenderer {
         gl_ia.vertexAttribDivisorANGLE(this.glA_color, 1);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleInfo.subarray(0, 3 * this.circleCount));
         gl.enableVertexAttribArray(this.glA_info);
-        gl.vertexAttribPointer(this.glA_info, 3, gl.FLOAT, false, 12, 0);
+        gl.vertexAttribPointer(this.glA_info, 4, gl.FLOAT, false, 16, 0);
         gl_ia.vertexAttribDivisorANGLE(this.glA_info, 1);
 
         gl_ia.drawArraysInstancedANGLE(gl.TRIANGLE_FAN, 0, CircleRenderer.CIRCLE_EDGE_COUNT + 2, this.circleCount);
@@ -214,7 +207,6 @@ class PointRenderer implements ParticleRenderer {
     gl: WebGLRenderingContext;
 
     circleColors: Float32Array;
-    circleInfo: Float32Array;
     circleCount: number;
 
     glProgram: WebGLProgram;
@@ -229,7 +221,6 @@ class PointRenderer implements ParticleRenderer {
         this.gl = gl;
 
         this.circleColors = new Float32Array(4 * PointRenderer.MAX_CIRCLE_COUNT);
-        this.circleInfo = new Float32Array(2 * PointRenderer.MAX_CIRCLE_COUNT);
         this.circleCount = 0;
     }
 
@@ -242,7 +233,7 @@ class PointRenderer implements ParticleRenderer {
 
         this.glProgram = program;
         this.glBufferColors = WebGLHelpers.createSizedArray(gl, this.circleColors.byteLength, gl.STATIC_DRAW);
-        this.glBufferInfo = WebGLHelpers.createSizedArray(gl, this.circleInfo.byteLength, gl.DYNAMIC_DRAW);
+        this.glBufferInfo = WebGLHelpers.createSizedArray(gl, 4 * PointRenderer.MAX_CIRCLE_COUNT * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW);
 
         this.glU_resolution = gl.getUniformLocation(program, 'u_resolution');
         
@@ -254,9 +245,6 @@ class PointRenderer implements ParticleRenderer {
 
     addCircle(x: number, y: number, r: number, color: number[]) {
         const id = this.circleCount;
-
-        this.circleInfo[id * 2 + 0] = x;
-        this.circleInfo[id * 2 + 1] = y;
 
         this.circleColors[id * 4 + 0] = color[0];
         this.circleColors[id * 4 + 1] = color[1];
@@ -282,9 +270,10 @@ class PointRenderer implements ParticleRenderer {
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleColors.subarray(0, 4 * this.circleCount));
     }
 
-    updateCircle(id: number, x: number, y: number) {
-        this.circleInfo[id * 2 + 0] = x;
-        this.circleInfo[id * 2 + 1] = y;
+    updateCircles(data: Float32Array) {
+        const gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, 4 * this.circleCount));
     }
 
     removeCircle(id) {
@@ -303,9 +292,8 @@ class PointRenderer implements ParticleRenderer {
         gl.vertexAttribPointer(this.glA_color, 4, gl.FLOAT, false, 16, 0);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.glBufferInfo);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.circleInfo.subarray(0, 3 * this.circleCount));
         gl.enableVertexAttribArray(this.glA_info);
-        gl.vertexAttribPointer(this.glA_info, 2, gl.FLOAT, false, 8, 0);
+        gl.vertexAttribPointer(this.glA_info, 4, gl.FLOAT, false, 16, 0);
 
         gl.drawArrays(gl.POINTS, 0, this.circleCount);
     }

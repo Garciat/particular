@@ -98,36 +98,108 @@ function randomDirectionVec2() {
 }
 // === ENTITIES
 class Particle {
-    constructor(pos, spd, shapeID) {
-        this.posX = pos.x;
-        this.posY = pos.y;
-        this.velX = spd.x;
-        this.velY = spd.y;
+    constructor(shapeID, dynamicsID) {
         this.shapeID = shapeID;
+        this.dynamicsID = dynamicsID;
     }
     distanceToVec2(v) {
-        let dx = this.posX - v.x;
-        let dy = this.posY - v.y;
-        return Math.sqrt(dx * dx + dy * dy);
+        return particleDynamics.getParticlePosVec2(this.dynamicsID).distanceTo(v);
     }
 }
 class Force {
-    constructor(pos, value, shapeID) {
-        this.posX = pos.x;
-        this.posY = pos.y;
-        this.value = value;
+    constructor(shapeID, dynamicsID) {
         this.shapeID = shapeID;
+        this.dynamicsID = dynamicsID;
     }
     distanceToVec2(v) {
-        let dx = this.posX - v.x;
-        let dy = this.posY - v.y;
-        return Math.sqrt(dx * dx + dy * dy);
+        return particleDynamics.getParticlePosVec2(this.dynamicsID).distanceTo(v);
+    }
+    getValue() {
+        return particleDynamics.getForceValue(this.dynamicsID);
     }
 }
+// === Particle Dynamics
+class ParticleDynamics {
+    constructor() {
+        this.particles = new Float32Array(ParticleDynamics.MAX_PARTICLES);
+        this.forces = new Float32Array(ParticleDynamics.MAX_PARTICLES);
+        this.particleCount = 0;
+        this.forceCount = 0;
+    }
+    addParticle(x, y, dx = 0, dy = 0) {
+        const id = this.particleCount++;
+        this.particles[id * 4 + 0] = +x;
+        this.particles[id * 4 + 1] = +y;
+        this.particles[id * 4 + 2] = +dx;
+        this.particles[id * 4 + 3] = +dy;
+        return id;
+    }
+    getParticlePosX(id) {
+        return this.particles[id * 4 + 0];
+    }
+    getParticlePosY(id) {
+        return this.particles[id * 4 + 1];
+    }
+    getParticlePosVec2(id) {
+        let px = this.particles[id * 4 + 0];
+        let py = this.particles[id * 4 + 1];
+        return new Vec2(px, py);
+    }
+    clearParticleVelocities() {
+        for (let id = 0; id < this.particleCount; ++id) {
+            this.particles[id * 4 + 2] = 0;
+            this.particles[id * 4 + 3] = 0;
+        }
+    }
+    addForce(x, y, k) {
+        const id = this.forceCount++;
+        this.forces[id * 3 + 0] = +x;
+        this.forces[id * 3 + 1] = +y;
+        this.forces[id * 3 + 2] = +k;
+        return id;
+    }
+    getForceValue(id) {
+        return this.forces[id * 3 + 2];
+    }
+    applySpeed(id) {
+        this.particles[id * 4 + 0] += this.particles[id * 4 + 2];
+        this.particles[id * 4 + 1] += this.particles[id * 4 + 3];
+    }
+    applyGravity(pid, fid) {
+        let fx = this.forces[fid * 3 + 0];
+        let fy = this.forces[fid * 3 + 1];
+        let px = this.particles[pid * 4 + 0];
+        let py = this.particles[pid * 4 + 1];
+        let dx = fx - px;
+        let dy = fy - py;
+        let dd = dx * dx + dy * dy;
+        if (dd <= FORCE_RADIUS * FORCE_RADIUS) {
+            return;
+        }
+        let k = this.forces[fid * 3 + 2] / dd;
+        let vx = dx * k;
+        let vy = dy * k;
+        this.particles[pid * 4 + 2] += vx;
+        this.particles[pid * 4 + 3] += vy;
+    }
+    simulate(dt) {
+        const nP = this.particleCount;
+        const nF = this.forceCount;
+        for (let iP = 0; iP < nP; ++iP) {
+            this.applySpeed(iP);
+            for (var iF = 0; iF < nF; ++iF) {
+                const force = forces[iF];
+                this.applyGravity(iP, iF);
+            }
+        }
+    }
+}
+ParticleDynamics.MAX_PARTICLES = 5000000;
 // === STATE
 const SCREENW = document.body.clientWidth;
 const SCREENH = document.body.clientHeight;
 const FORCE_RADIUS = 10;
+const particleDynamics = new ParticleDynamics();
 let particles = [];
 let forces = [];
 let mousePositions = [];
@@ -141,19 +213,17 @@ let clickDown = null;
 let friction = false;
 let particleRendererGlob = null;
 // === HELPERS
-function putParticle(bag, x, y) {
+function putParticle(bag, x, y, dx = 0, dy = 0) {
     const size = uniformI(2, 6);
     const color = randomHsla();
     const shapeID = particleRendererGlob.addCircle(x, y, size, color);
-    bag.push(new Particle(new Vec2(x, y), Vec2.zero(), shapeID));
+    const dynID = particleDynamics.addParticle(x, y, dx, dy);
+    bag.push(new Particle(shapeID, dynID));
 }
 function produceParticlesAtPos(bag, pos, n) {
     for (let i = 0; i < n; ++i) {
         const spd = randomDirectionVec2().smul_(5 * Math.random() + 5);
-        const size = uniformI(2, 6);
-        const color = randomHsla();
-        const shapeID = particleRendererGlob.addCircle(pos.x, pos.y, size, color);
-        bag.push(new Particle(pos, spd, shapeID));
+        putParticle(bag, pos.x, pos.y, spd.x, spd.y);
     }
     particleRendererGlob.flushCircles();
 }
@@ -171,24 +241,10 @@ function updateMouseSpeed(pos) {
     spd.sdiv_(n);
     mouseSpeed = spd;
 }
-function checkBounds(subject) {
-    return subject.posX >= 0 &&
-        subject.posY >= 0 &&
-        subject.posX <= SCREENW &&
-        subject.posY <= SCREENH;
-}
 // === EVENTS
 window.addEventListener('mousemove', function (ev) {
     const pos = Vec2.fromXY(ev.clientX, ev.clientY);
     if (clickDown === 1 && particles.length > 0) {
-        const lastParticle = particles[particles.length - 1];
-        if (lastParticle.distanceToVec2(pos) > 25) {
-            const size = uniformI(2, 6);
-            const color = particleRendererGlob.getCircleColor(lastParticle.shapeID);
-            const shapeID = particleRendererGlob.addCircle(pos.x, pos.y, size, color);
-            particles.push(new Particle(pos, Vec2.zero(), shapeID));
-            particleRendererGlob.flushCircles();
-        }
     }
     else if (clickDown === 2 && forces.length > 0) {
         if (controlPressed) {
@@ -198,7 +254,8 @@ window.addEventListener('mousemove', function (ev) {
             if (lastForce.distanceToVec2(pos) > 25) {
                 const color = particleRendererGlob.getCircleColor(lastForce.shapeID);
                 const shapeID = particleRendererGlob.addCircle(pos.x, pos.y, FORCE_RADIUS, color);
-                forces.push(new Force(pos, lastForce.value, shapeID));
+                const dynID = particleDynamics.addForce(pos.x, pos.y, lastForce.getValue());
+                forces.push(new Force(shapeID, dynID));
                 particleRendererGlob.flushCircles();
             }
         }
@@ -215,11 +272,6 @@ window.addEventListener('mousedown', function (ev) {
         }
     }
     else if (ev.button === 1) {
-        const size = uniformI(2, 6);
-        const color = randomHsla();
-        const shapeID = particleRendererGlob.addCircle(pos.x, pos.y, size, color);
-        particles.push(new Particle(pos, Vec2.zero(), shapeID));
-        particleRendererGlob.flushCircles();
     }
     else if (ev.button === 2) {
         let forceValue = 10;
@@ -229,7 +281,8 @@ window.addEventListener('mousedown', function (ev) {
             color = [0, 0, 1, 1];
         }
         const shapeID = particleRendererGlob.addCircle(pos.x, pos.y, FORCE_RADIUS, color);
-        forces.push(new Force(pos, forceValue, shapeID));
+        const dynID = particleDynamics.addForce(pos.x, pos.y, forceValue);
+        forces.push(new Force(shapeID, dynID));
         particleRendererGlob.flushCircles();
     }
     clickDown = ev.button;
@@ -251,7 +304,9 @@ window.addEventListener('keydown', function (ev) {
         altPressed = true;
     }
     else if (ev.keyCode === 32) {
-        particles = [];
+        for (let p of particles) {
+            particleDynamics.clearParticleVelocities();
+        }
     }
     else if (ev.keyCode === 70) {
         friction = !friction;
@@ -285,55 +340,11 @@ setInterval(function () {
     }
 }, 16);
 // === PHYSICS
-function applySpeed(particle) {
-    particle.posX += particle.velX;
-    particle.posY += particle.velY;
-}
-function applyGravity(force, particle) {
-    let fx = force.posX;
-    let fy = force.posY;
-    let sx = particle.posX;
-    let sy = particle.posY;
-    let dx = fx - sx;
-    let dy = fy - sy;
-    let dd = dx * dx + dy * dy;
-    if (dd <= FORCE_RADIUS * FORCE_RADIUS) {
-        return;
-    }
-    let k = force.value / dd;
-    let vx = dx * k;
-    let vy = dy * k;
-    particle.velX += vx;
-    particle.velY += vy;
-}
-function applyFriction(subject) {
-    subject.velX -= 0.05 * subject.velX;
-    subject.velY -= 0.05 * subject.velY;
-}
-function simulate() {
-    const nP = particles.length;
-    const nF = forces.length;
-    for (let iP = 0; iP < nP; ++iP) {
-        const particle = particles[iP];
-        applySpeed(particle);
-        for (var iF = 0; iF < nF; ++iF) {
-            const force = forces[iF];
-            applyGravity(force, particle);
-        }
-        if (friction) {
-            applyFriction(particle);
-        }
-    }
-}
 function updateParticlePositions() {
-    const nP = particles.length;
-    for (let iP = 0; iP < nP; ++iP) {
-        const particle = particles[iP];
-        particleRendererGlob.updateCircle(particle.shapeID, particle.posX, particle.posY);
-    }
+    particleRendererGlob.updateCircles(particleDynamics.particles);
 }
 function physicsLoop() {
-    simulate();
+    particleDynamics.simulate(0);
     updateParticlePositions();
 }
 function main() {

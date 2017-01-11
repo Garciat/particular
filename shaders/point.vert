@@ -1,7 +1,7 @@
 uniform vec2 u_resolution;
 
 attribute vec4 a_color;
-attribute vec3 a_info;
+attribute vec4 a_info;
 
 varying vec4 v_color;
 
